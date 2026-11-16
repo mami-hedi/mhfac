@@ -1,0 +1,96 @@
+-- Phase 7B : bons de retour client et retours fournisseur (mouvements de stock inverses des livraisons / réceptions).
+ALTER TABLE stock_movements MODIFY kind ENUM('entry','withdrawal','transfer_in','transfer_out','adjustment','inventory','delivery','delivery_reversal','cancellation','return_in','return_out') NOT NULL;
+
+CREATE TABLE sales_returns (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_id        CHAR(36) NOT NULL,
+  company_id       BIGINT UNSIGNED NOT NULL,
+  number           VARCHAR(40) NULL COMMENT 'attribue a la validation',
+  series           VARCHAR(20) NULL,
+  status           ENUM('draft','validated','cancelled') NOT NULL DEFAULT 'draft',
+  delivery_note_id BIGINT UNSIGNED NOT NULL,
+  client_id        BIGINT UNSIGNED NOT NULL,
+  warehouse_id     BIGINT UNSIGNED NULL,
+  client_snapshot  JSON NOT NULL,
+  company_snapshot JSON NULL,
+  return_date      DATE NOT NULL,
+  reason           VARCHAR(255) NOT NULL,
+  notes            TEXT NULL,
+  cancel_reason    VARCHAR(255) NULL,
+  validated_at     TIMESTAMP NULL,
+  validated_by     BIGINT UNSIGNED NULL,
+  created_by       BIGINT UNSIGNED NULL,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_sreturn_public (public_id),
+  UNIQUE KEY uq_sreturn_number (company_id, number),
+  KEY idx_sreturn_source (delivery_note_id),
+  KEY idx_sreturn_client (company_id, client_id),
+  CONSTRAINT fk_sreturn_company FOREIGN KEY (company_id) REFERENCES companies (id),
+  CONSTRAINT fk_sreturn_source FOREIGN KEY (delivery_note_id) REFERENCES delivery_notes (id),
+  CONSTRAINT fk_sreturn_client FOREIGN KEY (client_id) REFERENCES clients (id),
+  CONSTRAINT fk_sreturn_wh FOREIGN KEY (warehouse_id) REFERENCES warehouses (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE sales_return_lines (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  return_id        BIGINT UNSIGNED NOT NULL,
+  source_line_id   BIGINT UNSIGNED NOT NULL COMMENT 'ligne du bon de livraison',
+  position         SMALLINT UNSIGNED NOT NULL,
+  description      VARCHAR(500) NOT NULL,
+  quantity         DECIMAL(15,4) NOT NULL,
+  unit             VARCHAR(20) NOT NULL DEFAULT 'unité',
+  PRIMARY KEY (id),
+  KEY idx_sret_lines_parent (return_id, position),
+  KEY idx_sret_lines_source (source_line_id),
+  CONSTRAINT fk_sret_lines_parent FOREIGN KEY (return_id) REFERENCES sales_returns (id) ON DELETE CASCADE,
+  CONSTRAINT fk_sret_lines_source FOREIGN KEY (source_line_id) REFERENCES delivery_note_lines (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE purchase_returns (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_id        CHAR(36) NOT NULL,
+  company_id       BIGINT UNSIGNED NOT NULL,
+  number           VARCHAR(40) NULL COMMENT 'attribue a la validation',
+  series           VARCHAR(20) NULL,
+  status           ENUM('draft','validated','cancelled') NOT NULL DEFAULT 'draft',
+  receipt_id       BIGINT UNSIGNED NOT NULL,
+  supplier_id      BIGINT UNSIGNED NOT NULL,
+  warehouse_id     BIGINT UNSIGNED NULL,
+  supplier_snapshot JSON NOT NULL,
+  company_snapshot JSON NULL,
+  return_date      DATE NOT NULL,
+  reason           VARCHAR(255) NOT NULL,
+  notes            TEXT NULL,
+  cancel_reason    VARCHAR(255) NULL,
+  validated_at     TIMESTAMP NULL,
+  validated_by     BIGINT UNSIGNED NULL,
+  created_by       BIGINT UNSIGNED NULL,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_preturn_public (public_id),
+  UNIQUE KEY uq_preturn_number (company_id, number),
+  KEY idx_preturn_source (receipt_id),
+  KEY idx_preturn_supplier (company_id, supplier_id),
+  CONSTRAINT fk_preturn_company FOREIGN KEY (company_id) REFERENCES companies (id),
+  CONSTRAINT fk_preturn_source FOREIGN KEY (receipt_id) REFERENCES purchase_receipts (id),
+  CONSTRAINT fk_preturn_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id),
+  CONSTRAINT fk_preturn_wh FOREIGN KEY (warehouse_id) REFERENCES warehouses (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE purchase_return_lines (
+  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  return_id        BIGINT UNSIGNED NOT NULL,
+  source_line_id   BIGINT UNSIGNED NOT NULL COMMENT 'ligne de la reception',
+  position         SMALLINT UNSIGNED NOT NULL,
+  description      VARCHAR(500) NOT NULL,
+  quantity         DECIMAL(15,4) NOT NULL,
+  unit             VARCHAR(20) NOT NULL DEFAULT 'unité',
+  PRIMARY KEY (id),
+  KEY idx_pret_lines_parent (return_id, position),
+  KEY idx_pret_lines_source (source_line_id),
+  CONSTRAINT fk_pret_lines_parent FOREIGN KEY (return_id) REFERENCES purchase_returns (id) ON DELETE CASCADE,
+  CONSTRAINT fk_pret_lines_source FOREIGN KEY (source_line_id) REFERENCES purchase_receipt_lines (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

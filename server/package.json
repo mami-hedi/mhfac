@@ -1,0 +1,44 @@
+{
+  "name": "mhfac-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "start:cloud": "node src/server.js",
+    "migrate:cloud": "node scripts/migrate.js",
+    "migrate": "node --env-file=.env scripts/migrate.js",
+    "migrate:status": "node --env-file=.env scripts/migrate.js status",
+    "docs:api": "node --env-file=.env scripts/gen-api-docs.js",
+    "backup": "node --env-file=.env scripts/backup.js",
+    "restore": "node --env-file=.env scripts/restore.js",
+    "seed-demo": "node scripts/seed-demo.js",
+    "bench": "node --env-file=.env.test scripts/perf-bench.js",
+    "create-admin": "node --env-file=.env scripts/create-platform-admin.js",
+    "create-admin:cloud": "node scripts/create-platform-admin.js",
+    "test": "node --env-file=.env.test --test --test-concurrency=1"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.13",
+    "@tesseract.js-data/fra": "^1.0.0",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.11.5",
+    "nodemailer": "^10.1.7",
+    "pdfjs-dist": "^6.4.299",
+    "pdfkit": "^0.20.2",
+    "tesseract.js": "^7.0.0",
+    "xmllint-wasm": "^5.3.0",
+    "zod": "^4.6.7"
+  }
+}

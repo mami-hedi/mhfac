@@ -1,0 +1,34 @@
+# Dépendances et builds
+node_modules/
+dist/
+build/
+coverage/
+
+# Secrets : JAMAIS dans Git (seuls les *.example sont versionnés)
+.env
+.env.*
+!.env.example
+!.env.test.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.test.example
+
+# Fichiers générés / données locales
+*.log
+npm-debug.log*
+uploads/
+server/uploads/
+*.zip
+*.sql.gz
+*.bak
+
+# Schémas officiels TEJ (à déposer localement, voir server/schemas/tej/LISEZMOI.txt)
+server/schemas/tej/*.xsd
+!server/tests/fixtures/**/*.xsd
+
+# Système / éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

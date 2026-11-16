@@ -1,0 +1,17 @@
+Schémas XSD officiels TEJ (DGI) — dépôt des certificats de retenue à la source
+==============================================================================
+Fichiers présents (récupérés sur jibaya.tn / tej.finances.gov.tn) :
+  - TEJDeclarationRS_v1.0.xsd        fichier principal (racine DeclarationsRS, VersionSchema 1.0)
+  - TEJRSCodesOperations_v1.0.xsd    codes d'opération RS1_000001 ... RS11_000001
+  - TEJISOPaysDevises.xsd            codes pays ISO 3166 et devises ISO 4217 (sans TN / TND)
+
+CORRECTION LOCALE : dans la copie reçue de TEJISOPaysDevises.xsd, une balise </xs:enumeration> était en trop
+(ligne 1580, juste après la devise IDR) : le fichier n'était pas du XML valide et ne pouvait pas être chargé.
+Cette ligne a été supprimée, rien d'autre n'a été changé. L'original reçu est conservé sous
+TEJISOPaysDevises.xsd.original-dgi. Si la version publiée par la DGI est corrigée, remplacez simplement le fichier.
+
+Le fichier principal est détecté par son nom (commence par DeclarationRS ou TEJDeclarationRS) ; tous les autres
+.xsd du dossier sont chargés comme schémas inclus. Dossier alternatif : variable d'environnement TEJ_XSD_DIR.
+MHFac refuse de produire un fichier XML qui ne passe pas cette validation (erreur 422 TEJ_XSD_INVALID).
+Mettez à jour ces fichiers à chaque nouvelle version du cahier des charges TEJ.
+La validation XSD ne garantit PAS l'acceptation par TEJ : la plateforme fait aussi un test de contenu.

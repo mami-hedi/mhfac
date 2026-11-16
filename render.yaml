@@ -1,0 +1,27 @@
+# Blueprint Render (API seule). Les valeurs "sync: false" sont saisies dans le tableau de bord, jamais dans Git.
+services:
+  - type: web
+    name: mhfac-api
+    runtime: node
+    rootDir: server
+    plan: starter            # "free" possible pour un test court (mise en veille, 512 Mo : lecture de scans fragile)
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run migrate:cloud && npm run start:cloud
+    healthCheckPath: /api/v1/health
+    envVars:
+      - { key: NODE_VERSION, value: 20 }
+      - { key: NODE_ENV, value: production }
+      - { key: TRUST_PROXY, value: 2 }
+      - { key: DB_SSL, value: "true" }
+      - { key: CLIENT_URL, sync: false }
+      - { key: DB_HOST, sync: false }
+      - { key: DB_PORT, sync: false }
+      - { key: DB_USER, sync: false }
+      - { key: DB_PASSWORD, sync: false }
+      - { key: DB_NAME, value: defaultdb }
+      - { key: DB_SSL_CA, sync: false }
+      - { key: JWT_ACCESS_SECRET, generateValue: true }
+      - { key: JWT_REFRESH_SECRET, generateValue: true }
+      - { key: MAIL_PROVIDER, value: console }
+      - { key: EINVOICE_PROVIDER, value: simulation }
+      - { key: EINVOICE_MODULE, value: 'off' }
