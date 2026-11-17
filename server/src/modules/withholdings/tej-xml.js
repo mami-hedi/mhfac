@@ -20,7 +20,13 @@ const tag = (n, v, attrs = '') => `<${n}${attrs}>${esc(v)}</${n}>`;
 export const ddmmyyyy = (iso) => iso.split('-').reverse().join('/');
 
 const MF_RE = /^\d{7}[A-Z]$/;
-export const normalizeMf = (v) => String(v ?? '').replace(/[\s/.-]/g, '').toUpperCase();
+// Matricule fiscal complet « 1654872X/A/M/000 » (7 chiffres + clé, puis code TVA, catégorie, établissement) : TEJ n'attend que « 1654872X »
+// (XSD Identifiant = \d{7}[A-Z]). On extrait ce début ; toute autre forme est seulement nettoyée (espaces, séparateurs) puis contrôlée.
+export const normalizeMf = (v) => {
+  const s = String(v ?? '').toUpperCase().replace(/\s+/g, '');
+  const m = s.match(/^(\d{7})[-./]?([A-Z])(?:[-./]?[A-Z]){0,2}(?:[-./]?\d{3})?$/);
+  return m ? m[1] + m[2] : s.replace(/[/.-]/g, '');
+};
 export const isMf = (v) => MF_RE.test(normalizeMf(v));
 export const fileName = (declarantTaxId, year, month, acte) => `${normalizeMf(declarantTaxId)}-${year}-${month}-${acte}.xml`;
 
