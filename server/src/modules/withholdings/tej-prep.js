@@ -11,7 +11,7 @@ export function checkRow(r) {
   const issues = [];
   const add = (code, message, level = 'error') => issues.push({ code, level, message });
   if (!r.taxId) add('TAXID_MISSING', `Matricule fiscal du fournisseur « ${r.supplierName} » manquant (ou CIN / passeport à renseigner autrement)`);
-  else if (!MF_RE.test(String(r.taxId).replace(/[\s/.-]/g, '').toUpperCase())) add('TAXID_FORMAT', `Matricule fiscal « ${r.taxId} » : format attendu 7 chiffres + 1 lettre (ex. 1234567A) — à vérifier si c'est un CIN ou un passeport`, 'warning');
+  else if (!MF_RE.test(normalizeMf(r.taxId))) add('TAXID_FORMAT', `Matricule fiscal « ${r.taxId} » : format attendu 7 chiffres + 1 lettre (ex. 1234567A) — à vérifier si c'est un CIN ou un passeport`, 'warning');
   if (!r.paymentDate) add('PAYMENT_DATE_MISSING', 'Aucun paiement enregistré : la date de paiement est requise par TEJ');
   const ht = mil(r.totalHt); const tva = mil(r.totalTax); const ttc = mil(r.totalTtc); const timbre = mil(r.stampDuty ?? '0'); const ret = mil(r.amount);
   if (ht + tva + timbre !== ttc) add('TOTALS_MISMATCH', 'HT + TVA (+ timbre) ≠ TTC : vérifier la facture');
@@ -35,7 +35,7 @@ export function duplicateRefs(rows) {
 
 // ---- Contrôles supplémentaires nécessaires à la génération du XML TEJ ----
 import { OPERATION_CODES, isCode } from './tej-codes.js';
-import { isMf } from './tej-xml.js';
+import { isMf, normalizeMf } from './tej-xml.js';
 const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const TVA_RATES = [0n, 7n, 13n, 19n]; // taux de TVA en vigueur listés par le cahier des charges
 const hund = (v) => BigInt(Math.round(Number(v) * 100)); // taux en centièmes de %
