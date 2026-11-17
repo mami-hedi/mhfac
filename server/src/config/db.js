@@ -24,7 +24,9 @@ export const pool = mysql.createPool({
 // Sous REPEATABLE READ (défaut MySQL), un recalcul (ex. somme des règlements d'une facture) lu après un verrou
 // utilisait un instantané PÉRIMÉ et écrasait le résultat d'une transaction concurrente (règlements simultanés
 // acceptés au-delà du solde). Les accès concurrents sont sérialisés par des verrous explicites (SELECT … FOR UPDATE).
+// sql_mode : MySQL 8 et TiDB activent ONLY_FULL_GROUP_BY par défaut, contrairement à MariaDB/XAMPP.
 pool.on('connection', (conn) => {
+  conn.query("SET SESSION sql_mode = REPLACE(REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY,', ''), 'ONLY_FULL_GROUP_BY', '')");
   conn.query("SET time_zone = '+00:00'");
   conn.query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
 });
