@@ -67,6 +67,15 @@ export async function registerCompany(input, ctx) {
   const [[exists]] = await pool.query('SELECT id FROM users WHERE email = ?', [input.email]);
   if (exists) throw new HttpError(409, 'EMAIL_TAKEN', 'Cette adresse e-mail est déjà utilisée');
 
+  // Offre choisie : doit être publique, active et vendue en libre-service (une offre « sur demande » passe par un contact).
+  let planCode = env.DEFAULT_PLAN_CODE;
+  if (input.planCode) {
+    const [[plan]] = await pool.query('SELECT code, name, price_monthly FROM subscription_plans WHERE code = ? AND is_public = 1 AND is_active = 1', [input.planCode]);
+    if (!plan) throw new HttpError(400, 'INVALID_PLAN', 'Offre inconnue ou indisponible');
+    if (plan.price_monthly === null) throw new HttpError(400, 'PLAN_ON_REQUEST', `L'offre ${plan.name} est proposée sur demande : contactez-nous pour l'obtenir`);
+    planCode = plan.code;
+  }
+
   const passwordHash = await hashPassword(input.password);
   return withTransaction(async (conn) => {
     const [c] = await conn.query('INSERT INTO companies (public_id, name, tax_id) VALUES (?,?,?)', [newPublicId(), input.companyName, input.taxId ?? null]);
@@ -74,8 +83,8 @@ export async function registerCompany(input, ctx) {
     const [u] = await conn.query('INSERT INTO users (public_id, email, password_hash, full_name) VALUES (?,?,?,?)', [newPublicId(), input.email, passwordHash, input.fullName]);
     await conn.query('INSERT INTO company_members (company_id, user_id, role_id) VALUES (?,?,?)', [c.insertId, u.insertId, await roleId(conn, 'owner')]);
     await seedDefaultTaxRates(conn, c.insertId);
-    await ensureSubscription(conn, c.insertId);
-    await audit(conn, { companyId: c.insertId, userId: u.insertId, action: 'company.registered', entityType: 'company', entityId: c.insertId, ip: ctx.ip });
+    await ensureSubscription(conn, c.insertId, planCode);
+    await audit(conn, { companyId: c.insertId, userId: u.insertId, action: 'company.registered', entityType: 'company', entityId: c.insertId, ip: ctx.ip, meta: { plan: planCode } });
 
     const [[user]] = await conn.query('SELECT * FROM users WHERE id = ?', [u.insertId]);
     const [[company]] = await conn.query('SELECT * FROM companies WHERE id = ?', [c.insertId]);

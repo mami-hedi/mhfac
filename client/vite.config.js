@@ -22,7 +22,10 @@ function seo(siteUrl) {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const siteUrl = (env.VITE_SITE_URL || '').replace(/\/+$/, '');
+  // VITE_SITE_URL en priorité ; sinon, sur Vercel, l'adresse de production fournie par la plateforme (sans elle les aperçus de lien
+  // Messenger/WhatsApp/Facebook affichent « / », car og:url et og:image restent relatifs).
+  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_PROJECT_PRODUCTION_URL || '';
+  const siteUrl = (env.VITE_SITE_URL || (vercelHost ? `https://${vercelHost}` : '')).replace(/\/+$/, '');
   return {
     plugins: [react(), tailwindcss(), seo(siteUrl)],
     server: {

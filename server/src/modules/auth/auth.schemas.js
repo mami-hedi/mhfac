@@ -9,6 +9,7 @@ export const registerSchema = z.object({
   fullName: z.string().trim().min(2).max(190),
   email,
   password: passwordSchema,
+  planCode: z.string().trim().regex(/^[a-z0-9_]{2,50}$/).optional(), // offre choisie à l'inscription (essai gratuit sur cette offre)
 });
 export const loginSchema = z.object({ email, password: z.string().min(1).max(128), companyId: z.string().uuid().optional() });
 export const emailOnlySchema = z.object({ email });

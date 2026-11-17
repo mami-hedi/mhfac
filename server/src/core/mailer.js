@@ -9,6 +9,8 @@ export async function sendMail({ to, subject, text, attachments, replyTo }) {
   if (env.MAIL_PROVIDER === 'smtp') {
     transport ??= nodemailer.createTransport({
       host: env.SMTP_HOST, port: env.SMTP_PORT,
+      secure: env.SMTP_PORT === 465, // 465 = TLS direct ; 587 / 2525 = STARTTLS (négocié automatiquement)
+      connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000, // échec rapide plutôt qu'une requête qui reste bloquée
       auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } : undefined,
     });
     await transport.sendMail({ from: env.MAIL_FROM, to, subject, text, attachments, replyTo });

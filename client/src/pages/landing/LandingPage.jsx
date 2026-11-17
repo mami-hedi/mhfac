@@ -75,10 +75,10 @@ const features = [
 ];
 
 const FALLBACK_PLANS = [
-  { n: "Découverte", priced: false, cur: "TND", s: "Pour essayer MHFac", p: "Sur demande", y: null, f: [["1 utilisateur", 1], ["10 factures / mois", 1], ["1 entrepôt", 1], ["5 scans de factures / mois", 1], ["Scan de factures fournisseur", 1], ["Facturation électronique (bientôt)", 0], ["Export des rapports", 0]] },
-  { n: "Auto-entrepreneur", priced: true, cur: "TND", s: "Pour une activité individuelle", p: "31", y: "310 TND / an (2 mois offerts)", f: [["1 utilisateur", 1], ["50 factures / mois", 1], ["1 entrepôt", 1], ["30 scans de factures / mois", 1], ["Scan de factures fournisseur", 1], ["Export des rapports (CSV, Excel, PDF)", 1], ["Facturation électronique (bientôt)", 0]] },
-  { n: "Pro", priced: true, cur: "TND", s: "L'offre standard MHFac", p: "56", y: "560 TND / an (2 mois offerts)", hot: true, f: [["5 utilisateurs", 1], ["300 factures / mois", 1], ["3 entrepôts", 1], ["150 scans de factures / mois", 1], ["Facturation électronique (bientôt)", 0], ["Scan de factures fournisseur", 1], ["Export des rapports (CSV, Excel, PDF)", 1]] },
-  { n: "Business", priced: true, cur: "TND", s: "Pour une entreprise multi-utilisateurs", p: "129", y: "1 290 TND / an (2 mois offerts)", f: [["25 utilisateurs", 1], ["Factures illimitées", 1], ["10 entrepôts", 1], ["1 000 scans de factures / mois", 1], ["Exports illimités", 1], ["Facturation électronique (bientôt)", 0], ["Scan de factures fournisseur", 1]] },
+  { code: "decouverte", n: "Découverte", priced: false, cur: "TND", s: "Pour essayer MHFac", p: "Sur demande", y: null, f: [["1 utilisateur", 1], ["10 factures / mois", 1], ["1 entrepôt", 1], ["5 scans de factures / mois", 1], ["Scan de factures fournisseur", 1], ["Facturation électronique (bientôt)", 0], ["Export des rapports", 0]] },
+  { code: "auto_entrepreneur", n: "Auto-entrepreneur", priced: true, cur: "TND", s: "Pour une activité individuelle", p: "31", y: "310 TND / an (2 mois offerts)", f: [["1 utilisateur", 1], ["50 factures / mois", 1], ["1 entrepôt", 1], ["30 scans de factures / mois", 1], ["Scan de factures fournisseur", 1], ["Export des rapports (CSV, Excel, PDF)", 1], ["Facturation électronique (bientôt)", 0]] },
+  { code: "pro", n: "Pro", priced: true, cur: "TND", s: "L'offre standard MHFac", p: "56", y: "560 TND / an (2 mois offerts)", hot: true, f: [["5 utilisateurs", 1], ["300 factures / mois", 1], ["3 entrepôts", 1], ["150 scans de factures / mois", 1], ["Facturation électronique (bientôt)", 0], ["Scan de factures fournisseur", 1], ["Export des rapports (CSV, Excel, PDF)", 1]] },
+  { code: "business", n: "Business", priced: true, cur: "TND", s: "Pour une entreprise multi-utilisateurs", p: "129", y: "1 290 TND / an (2 mois offerts)", f: [["25 utilisateurs", 1], ["Factures illimitées", 1], ["10 entrepôts", 1], ["1 000 scans de factures / mois", 1], ["Exports illimités", 1], ["Facturation électronique (bientôt)", 0], ["Scan de factures fournisseur", 1]] },
 ];
 
 function Logo({ light }) {
@@ -318,7 +318,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 {pl.priced ? (
-                  <Link to="/register" className={`mt-8 rounded-full py-3 text-center font-bold transition ${hot ? "bg-lp-brand text-white" : "border border-lp-border hover:border-lp-primary hover:text-lp-primary"}`}>Essayer 14 jours</Link>
+                  <Link to={pl.code ? `/register?plan=${pl.code}` : "/register"} className={`mt-8 rounded-full py-3 text-center font-bold transition ${hot ? "bg-lp-brand text-white" : "border border-lp-border hover:border-lp-primary hover:text-lp-primary"}`}>Choisir {pl.n} · essai 14 jours</Link>
                 ) : (
                   <a href={wa(`Bonjour, je suis intéressé(e) par le pack ${pl.n} de MHFac`)} className="mt-8 rounded-full border border-lp-border py-3 text-center font-bold transition hover:border-lp-primary hover:text-lp-primary">Nous contacter</a>
                 )}

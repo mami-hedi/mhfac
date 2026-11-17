@@ -90,3 +90,14 @@ test('abonnement expiré/annulé : lecture seule ; suspension d\'entreprise ; pl
   assert.equal((await assign(C, { planCode: PLAN })).body.error.code, 'PLAN_INACTIVE');
   assert.equal((await assign(C, { planCode: 'inconnu' })).status, 422);
 });
+
+test('inscription : l\'offre choisie est attribuée dès le départ (essai sur cette offre) ; offre inconnue ou « sur demande » refusée', async () => {
+  const reg = (extra) => { const email = uniqueEmail('plan'); return c('POST', '/auth/register-company', { body: { companyName: `Choix ${email}`, fullName: 'Choix Test', email, password: PASSWORD, ...extra } }); };
+  const r = await reg({ planCode: 'auto_entrepreneur' }); assert.equal(r.status, 201, r.raw);
+  const sub = ok(await c('GET', '/subscription', { token: r.body.data.accessToken }));
+  assert.equal(sub.plan.code, 'auto_entrepreneur'); assert.equal(sub.status, 'trial'); assert.equal(sub.limits.invoicesPerMonth, 50);
+  const def = await reg({}); assert.equal(def.status, 201); assert.equal(ok(await c('GET', '/subscription', { token: def.body.data.accessToken })).plan.code, process.env.DEFAULT_PLAN_CODE ?? 'pro', 'sans choix : offre par défaut');
+  const bad = await reg({ planCode: 'inexistant' }); assert.equal(bad.status, 400); assert.equal(bad.body.error.code, 'INVALID_PLAN');
+  const [[dec]] = await pool.query("SELECT price_monthly FROM subscription_plans WHERE code = 'decouverte'");
+  if (dec.price_monthly === null) { const od = await reg({ planCode: 'decouverte' }); assert.equal(od.status, 400); assert.equal(od.body.error.code, 'PLAN_ON_REQUEST'); }
+});

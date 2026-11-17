@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Building2, Check, ChevronDown, LogOut, Menu, Plus, Search, Settings, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -6,6 +6,7 @@ import NotificationBell from '../features/notifications/NotificationBell.jsx';
 import { QUICK_CREATE, flatPages } from '../config/nav.js';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { ROLE_LABELS, cn } from '../utils/format.js';
+import { api } from '../services/api.js';
 
 function Dropdown({ trigger, children, align = 'right', width = 'w-56', label }) {
   const [open, setOpen] = useState(false);
@@ -66,6 +67,28 @@ function GlobalSearch() {
   );
 }
 
+// Offre en cours (et jours d'essai restants) : visible dès l'arrivée dans l'application, lien vers la page Abonnement.
+function PlanBadge() {
+  const { can, company } = useAuth();
+  const navigate = useNavigate();
+  const [sub, setSub] = useState(null);
+  useEffect(() => {
+    if (!can('subscription.read')) return undefined;
+    let alive = true; setSub(null);
+    api.get('/subscription').then((r) => { if (alive) setSub(r.data.data); }).catch(() => {});
+    return () => { alive = false; };
+  }, [can, company.id]);
+  if (!sub?.plan) return null;
+  const trial = sub.effectiveStatus === 'trial' && sub.trialDaysLeft != null;
+  const txt = sub.readOnly ? `${sub.plan.name} · expiré` : trial ? `${sub.plan.name} · essai ${sub.trialDaysLeft} j` : sub.plan.name;
+  return (
+    <button onClick={() => navigate('/subscription')} title="Voir mon abonnement"
+      className={cn('hidden items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold sm:inline-flex', sub.readOnly ? 'border-red-200 bg-red-50 text-red-700' : 'border-brand-200 bg-brand-50 text-brand-700')}>
+      {txt}
+    </button>
+  );
+}
+
 export default function Header({ onMenu }) {
   const { user, company, role, memberships, can, logout, switchCompany } = useAuth();
   const navigate = useNavigate();
@@ -91,6 +114,7 @@ export default function Header({ onMenu }) {
             </Item>
           ))}
         </Dropdown>
+        <PlanBadge />
         <NotificationBell />
         <Dropdown label="Profil" width="w-64" trigger={
           <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-600 text-xs font-semibold text-white">{initials}</span>}>

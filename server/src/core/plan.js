@@ -20,18 +20,18 @@ export function effectiveStatus(row, now = new Date()) {
 }
 export const isReadOnly = (status) => status === 'expired' || status === 'cancelled';
 
-// Attribue le plan par défaut (DEFAULT_PLAN_CODE) à une entreprise sans abonnement : idempotent.
-export async function ensureSubscription(conn, companyId) {
+// Attribue le plan voulu (par défaut DEFAULT_PLAN_CODE) à une entreprise sans abonnement : idempotent.
+export async function ensureSubscription(conn, companyId, planCode = env.DEFAULT_PLAN_CODE) {
   const days = env.TRIAL_DAYS;
   if (days > 0) {
     // Essai gratuit : fin = dernier instant (heure de Tunis) du jour J+days, comme les dates saisies par l'administrateur.
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Tunis' }).format(new Date());
     const end = new Date(Date.parse(`${today}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
     await conn.query(`INSERT IGNORE INTO company_subscriptions (company_id, plan_id, status, trial_ends_at, notes)
-      SELECT ?, id, 'trial', ?, ? FROM subscription_plans WHERE code = ?`, [companyId, `${end} 23:59:59`, `Essai gratuit de ${days} jours à l'inscription`, env.DEFAULT_PLAN_CODE]);
+      SELECT ?, id, 'trial', ?, ? FROM subscription_plans WHERE code = ?`, [companyId, `${end} 23:59:59`, `Essai gratuit de ${days} jours à l'inscription`, planCode]);
   } else {
     await conn.query(`INSERT IGNORE INTO company_subscriptions (company_id, plan_id, status, notes)
-      SELECT ?, id, 'active', 'Plan par défaut à l''inscription' FROM subscription_plans WHERE code = ?`, [companyId, env.DEFAULT_PLAN_CODE]);
+      SELECT ?, id, 'active', 'Plan par défaut à l''inscription' FROM subscription_plans WHERE code = ?`, [companyId, planCode]);
   }
 }
 
