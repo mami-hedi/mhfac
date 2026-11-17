@@ -162,5 +162,5 @@ CREATE TABLE stock_count_lines (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Bon de livraison : entrepot d'ou part la marchandise
-ALTER TABLE delivery_notes ADD COLUMN warehouse_id BIGINT UNSIGNED NULL AFTER order_id,
-  ADD CONSTRAINT fk_delivery_wh FOREIGN KEY (warehouse_id) REFERENCES warehouses (id);
+ALTER TABLE delivery_notes ADD COLUMN warehouse_id BIGINT UNSIGNED NULL AFTER order_id;
+ALTER TABLE delivery_notes ADD CONSTRAINT fk_delivery_wh FOREIGN KEY (warehouse_id) REFERENCES warehouses (id);

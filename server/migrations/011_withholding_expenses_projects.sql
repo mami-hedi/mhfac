@@ -90,8 +90,13 @@ CREATE TABLE expense_note_lines (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Rattachement des documents à un projet (métadonnée, sans effet sur les montants)
-ALTER TABLE quotes ADD COLUMN project_id BIGINT UNSIGNED NULL, ADD CONSTRAINT fk_quotes_project FOREIGN KEY (project_id) REFERENCES projects (id);
-ALTER TABLE sales_orders ADD COLUMN project_id BIGINT UNSIGNED NULL, ADD CONSTRAINT fk_so_project FOREIGN KEY (project_id) REFERENCES projects (id);
-ALTER TABLE invoices ADD COLUMN project_id BIGINT UNSIGNED NULL, ADD CONSTRAINT fk_invoices_project FOREIGN KEY (project_id) REFERENCES projects (id);
-ALTER TABLE purchase_orders ADD COLUMN project_id BIGINT UNSIGNED NULL, ADD CONSTRAINT fk_po_project FOREIGN KEY (project_id) REFERENCES projects (id);
-ALTER TABLE purchase_invoices ADD COLUMN project_id BIGINT UNSIGNED NULL, ADD CONSTRAINT fk_pi_project FOREIGN KEY (project_id) REFERENCES projects (id);
+ALTER TABLE quotes ADD COLUMN project_id BIGINT UNSIGNED NULL;
+ALTER TABLE quotes ADD CONSTRAINT fk_quotes_project FOREIGN KEY (project_id) REFERENCES projects (id);
+ALTER TABLE sales_orders ADD COLUMN project_id BIGINT UNSIGNED NULL;
+ALTER TABLE sales_orders ADD CONSTRAINT fk_so_project FOREIGN KEY (project_id) REFERENCES projects (id);
+ALTER TABLE invoices ADD COLUMN project_id BIGINT UNSIGNED NULL;
+ALTER TABLE invoices ADD CONSTRAINT fk_invoices_project FOREIGN KEY (project_id) REFERENCES projects (id);
+ALTER TABLE purchase_orders ADD COLUMN project_id BIGINT UNSIGNED NULL;
+ALTER TABLE purchase_orders ADD CONSTRAINT fk_po_project FOREIGN KEY (project_id) REFERENCES projects (id);
+ALTER TABLE purchase_invoices ADD COLUMN project_id BIGINT UNSIGNED NULL;
+ALTER TABLE purchase_invoices ADD CONSTRAINT fk_pi_project FOREIGN KEY (project_id) REFERENCES projects (id);

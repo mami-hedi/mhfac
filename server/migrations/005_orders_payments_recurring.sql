@@ -76,8 +76,8 @@ CREATE TABLE sales_order_tax_lines (
   CONSTRAINT fk_order_tax_parent FOREIGN KEY (sales_order_id) REFERENCES sales_orders (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE quotes ADD COLUMN converted_order_id BIGINT UNSIGNED NULL AFTER converted_invoice_id,
-  ADD CONSTRAINT fk_quotes_order FOREIGN KEY (converted_order_id) REFERENCES sales_orders (id);
+ALTER TABLE quotes ADD COLUMN converted_order_id BIGINT UNSIGNED NULL AFTER converted_invoice_id;
+ALTER TABLE quotes ADD CONSTRAINT fk_quotes_order FOREIGN KEY (converted_order_id) REFERENCES sales_orders (id);
 
 CREATE TABLE delivery_notes (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -152,18 +152,17 @@ CREATE TABLE recurring_invoices (
   CONSTRAINT fk_recurring_user FOREIGN KEY (created_by) REFERENCES users (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE invoices
-  ADD COLUMN invoice_type ENUM('standard','deposit','final') NOT NULL DEFAULT 'standard' AFTER kind,
-  ADD COLUMN order_id BIGINT UNSIGNED NULL AFTER quote_id,
-  ADD COLUMN delivery_note_id BIGINT UNSIGNED NULL AFTER order_id,
-  ADD COLUMN recurring_id BIGINT UNSIGNED NULL AFTER delivery_note_id,
-  ADD COLUMN deposit_pct DECIMAL(5,2) NULL COMMENT 'Pourcentage de la commande (facture d''acompte)',
-  ADD COLUMN deposit_deducted DECIMAL(15,3) NOT NULL DEFAULT 0 COMMENT 'Acomptes TTC deduits (facture de solde), fige a l''emission',
-  ADD KEY idx_invoices_order (order_id),
-  ADD UNIQUE KEY uq_invoices_delivery (delivery_note_id),
-  ADD CONSTRAINT fk_invoices_order FOREIGN KEY (order_id) REFERENCES sales_orders (id),
-  ADD CONSTRAINT fk_invoices_delivery FOREIGN KEY (delivery_note_id) REFERENCES delivery_notes (id),
-  ADD CONSTRAINT fk_invoices_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_invoices (id);
+ALTER TABLE invoices ADD COLUMN invoice_type ENUM('standard','deposit','final') NOT NULL DEFAULT 'standard' AFTER kind;
+ALTER TABLE invoices ADD COLUMN order_id BIGINT UNSIGNED NULL AFTER quote_id;
+ALTER TABLE invoices ADD COLUMN delivery_note_id BIGINT UNSIGNED NULL AFTER order_id;
+ALTER TABLE invoices ADD COLUMN recurring_id BIGINT UNSIGNED NULL AFTER delivery_note_id;
+ALTER TABLE invoices ADD COLUMN deposit_pct DECIMAL(5,2) NULL COMMENT 'Pourcentage de la commande (facture d''acompte)';
+ALTER TABLE invoices ADD COLUMN deposit_deducted DECIMAL(15,3) NOT NULL DEFAULT 0 COMMENT 'Acomptes TTC deduits (facture de solde), fige a l''emission';
+ALTER TABLE invoices ADD KEY idx_invoices_order (order_id);
+ALTER TABLE invoices ADD UNIQUE KEY uq_invoices_delivery (delivery_note_id);
+ALTER TABLE invoices ADD CONSTRAINT fk_invoices_order FOREIGN KEY (order_id) REFERENCES sales_orders (id);
+ALTER TABLE invoices ADD CONSTRAINT fk_invoices_delivery FOREIGN KEY (delivery_note_id) REFERENCES delivery_notes (id);
+ALTER TABLE invoices ADD CONSTRAINT fk_invoices_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_invoices (id);
 
 CREATE TABLE invoice_deposits (
   id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

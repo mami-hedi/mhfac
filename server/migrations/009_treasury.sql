@@ -86,5 +86,7 @@ CREATE TABLE treasury_instruments (
   CONSTRAINT fk_tins_account FOREIGN KEY (account_id) REFERENCES treasury_accounts (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE payments ADD COLUMN account_id BIGINT UNSIGNED NULL AFTER method, ADD CONSTRAINT fk_payments_account FOREIGN KEY (account_id) REFERENCES treasury_accounts (id);
-ALTER TABLE supplier_payments ADD COLUMN account_id BIGINT UNSIGNED NULL AFTER method, ADD CONSTRAINT fk_spayments_account FOREIGN KEY (account_id) REFERENCES treasury_accounts (id);
+ALTER TABLE payments ADD COLUMN account_id BIGINT UNSIGNED NULL AFTER method;
+ALTER TABLE payments ADD CONSTRAINT fk_payments_account FOREIGN KEY (account_id) REFERENCES treasury_accounts (id);
+ALTER TABLE supplier_payments ADD COLUMN account_id BIGINT UNSIGNED NULL AFTER method;
+ALTER TABLE supplier_payments ADD CONSTRAINT fk_spayments_account FOREIGN KEY (account_id) REFERENCES treasury_accounts (id);
