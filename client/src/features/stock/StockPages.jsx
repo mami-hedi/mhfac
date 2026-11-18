@@ -161,6 +161,7 @@ function VoucherForm({ type, initial, warehouses, onClose, onDone }) {
         <Alert tone="error">{error}</Alert>
         <div className="grid gap-3 sm:grid-cols-2">
           <WhSelect id="v-wh" label={type === 'transfer' ? 'Entrepôt d\'origine' : 'Entrepôt'} value={f.warehouseId} onChange={(v) => setF({ ...f, warehouseId: v })} list={active} />
+          {type === 'transfer' && [active.find((w) => w.id === f.warehouseId), active.find((w) => w.id === f.toWarehouseId)].some((w) => w && !w.address) && <div className="sm:col-span-2"><Alert tone="info">L'adresse d'un des deux entrepôts n'est pas renseignée : elle sera absente du bon de transfert. Complétez-la dans Stock → Entrepôts.</Alert></div>}
           {type === 'transfer' && <WhSelect id="v-to" label="Entrepôt de destination" value={f.toWarehouseId} onChange={(v) => setF({ ...f, toWarehouseId: v })} list={active} />}
           <div><label htmlFor="v-date" className="mb-1 block text-sm font-medium">Date</label><input id="v-date" type="date" max={todayIso()} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={field} /></div>
           {type === 'transfer' && <div><label htmlFor="v-plate" className="mb-1 block text-sm font-medium">Matricule du véhicule</label><input id="v-plate" value={f.vehiclePlate} maxLength={20} placeholder="Ex. 123 TUN 4567" onChange={(e) => setF({ ...f, vehiclePlate: e.target.value })} className={field} /></div>}
@@ -242,8 +243,8 @@ export function VoucherViewPage({ type }) {
       <Card className="min-w-0 p-5">
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <div><dt className="text-slate-500">Date</dt><dd>{fmtDate(doc.date)}</dd></div>
-          <div><dt className="text-slate-500">{type === 'transfer' ? 'Origine' : 'Entrepôt'}</dt><dd>{doc.warehouse.name}</dd></div>
-          {doc.toWarehouse && <div><dt className="text-slate-500">Destination</dt><dd>{doc.toWarehouse.name}</dd></div>}
+          <div><dt className="text-slate-500">{type === 'transfer' ? 'Origine' : 'Entrepôt'}</dt><dd>{doc.warehouse.name}{type === 'transfer' && <span className="block text-xs font-normal text-slate-500">{doc.warehouse.address || '⚠ Adresse non renseignée'}</span>}</dd></div>
+          {doc.toWarehouse && <div><dt className="text-slate-500">Destination</dt><dd>{doc.toWarehouse.name}<span className="block text-xs font-normal text-slate-500">{doc.toWarehouse.address || '⚠ Adresse non renseignée'}</span></dd></div>}
           {doc.vehiclePlate && <div><dt className="text-slate-500">Véhicule</dt><dd>{doc.vehiclePlate}</dd></div>}
           {doc.reason && <div><dt className="text-slate-500">Motif</dt><dd>{doc.reason}</dd></div>}
         </dl>

@@ -38,7 +38,7 @@ export default function vouchersRouter(type) {
   });
 
   async function find(conn, companyId, publicId, forUpdate = false) {
-    const [[v]] = await conn.query(`SELECT v.*, DATE_FORMAT(v.voucher_date,'%Y-%m-%d') AS date_s, w.public_id AS wh_pid, w.name AS wh_name, t.public_id AS to_pid, t.name AS to_name
+    const [[v]] = await conn.query(`SELECT v.*, DATE_FORMAT(v.voucher_date,'%Y-%m-%d') AS date_s, w.public_id AS wh_pid, w.name AS wh_name, w.address AS wh_addr, t.public_id AS to_pid, t.name AS to_name, t.address AS to_addr
       FROM stock_vouchers v JOIN warehouses w ON w.id = v.warehouse_id LEFT JOIN warehouses t ON t.id = v.to_warehouse_id WHERE v.company_id = ? AND v.public_id = ? AND v.type = ? ${forUpdate ? 'FOR UPDATE' : ''}`, [companyId, publicId, type]);
     if (!v) throw new HttpError(404, 'NOT_FOUND', `${T.label} introuvable`);
     return v;
@@ -46,7 +46,7 @@ export default function vouchersRouter(type) {
   const dto = async (conn, companyId, publicId) => {
     const v = await find(conn, companyId, publicId);
     const [lines] = await conn.query('SELECT l.*, p.public_id AS product_pid, p.name, p.sku, p.unit FROM stock_voucher_lines l JOIN products p ON p.id = l.product_id WHERE l.voucher_id = ? ORDER BY l.position', [v.id]);
-    return { id: v.public_id, type, number: v.number, status: v.status, date: v.date_s, warehouse: { id: v.wh_pid, name: v.wh_name }, toWarehouse: v.to_pid ? { id: v.to_pid, name: v.to_name } : null, reason: v.reason, vehiclePlate: v.vehicle_plate, notes: v.notes, cancelReason: v.cancel_reason, createdAt: v.created_at,
+    return { id: v.public_id, type, number: v.number, status: v.status, date: v.date_s, warehouse: { id: v.wh_pid, name: v.wh_name, address: v.wh_addr }, toWarehouse: v.to_pid ? { id: v.to_pid, name: v.to_name, address: v.to_addr } : null, reason: v.reason, vehiclePlate: v.vehicle_plate, notes: v.notes, cancelReason: v.cancel_reason, createdAt: v.created_at,
       lines: lines.map((l) => ({ id: l.id, productId: l.product_pid, name: l.name, sku: l.sku, unit: l.unit, quantity: l.quantity, unitCost: l.unit_cost })) };
   };
   async function writeLines(conn, voucherId, companyId, lines) {

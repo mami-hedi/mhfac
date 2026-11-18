@@ -50,12 +50,23 @@ export async function renderStockVoucherPdf({ doc, companyId }) {
   let y = drawHeader(frame);
 
   // Bloc d'informations
-  const info = doc.type === 'transfer'
-    ? [['Date', dateFr(doc.date)], ['Origine', doc.warehouse?.name], ['Destination', doc.toWarehouse?.name], ['Véhicule', doc.vehiclePlate], ['Motif', doc.reason]]
+  const isTransfer = doc.type === 'transfer';
+  const info = isTransfer
+    ? [['Date', dateFr(doc.date)], ['Véhicule', doc.vehiclePlate], ['Motif', doc.reason]]
     : [['Date', dateFr(doc.date)], ['Entrepôt', doc.warehouse?.name], ['Motif', doc.reason]];
   const colW = W / info.length;
   info.forEach(([k, v], i) => { text(k.toUpperCase(), L + i * colW, y, { size: 7.5, bold: true, color: GREY, width: colW - 8 }); text(v || '—', L + i * colW, y + 11, { size: 10, bold: true, width: colW - 8 }); });
   y += 40;
+  // Transfert : origine et destination avec leur ADRESSE exacte (document de transport de marchandises).
+  if (isTransfer) {
+    const half = (W - 16) / 2;
+    [['Origine', doc.warehouse, L], ['Destination', doc.toWarehouse, L + half + 16]].forEach(([k, w, x]) => {
+      text(k.toUpperCase(), x, y, { size: 7.5, bold: true, color: GREY, width: half });
+      text(w?.name || '—', x, y + 11, { size: 10, bold: true, width: half });
+      text(w?.address || 'Adresse de l\'entrepôt non renseignée', x, y + 24, { size: 9, width: half, color: w?.address ? INK : '#b45309' });
+    });
+    y += 58;
+  }
 
   // Tableau des lignes
   const cols = showCost

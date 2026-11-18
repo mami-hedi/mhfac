@@ -323,3 +323,9 @@ Le contrôle de préparation TEJ refusait un matricule fiscal tunisien complet (
 Déploiement : `npm run migrate` (Render l'exécute au démarrage via `migrate:cloud`). Tests : `tests/vehicle_plate.test.js` (4) ; `security.test.js` exclut `/availability` (calcul sans écriture).
 
 **Décision (9U bis) : une facture n'est jamais refusée pour stock insuffisant.** À l'émission d'une facture avec « sortir du stock », le stock peut devenir négatif même si le réglage « stock négatif autorisé » est désactivé (`issueStockExit` force `allowNegative: true`). Le message de ligne reste un avertissement orange, jamais bloquant. Les bons de livraison et bons de prélèvement gardent le réglage de l'entreprise.
+
+## 9V — Bon de transfert : adresse exacte des entrepôts d'origine et de destination
+
+Le bon de transfert accompagne la marchandise en circulation : le PDF affiche maintenant, pour **l'origine et la destination**, le nom **et l'adresse** de l'entrepôt (champ « Adresse » des entrepôts, Stock → Entrepôts). Si une adresse manque, le PDF l'indique en orange (« Adresse de l'entrepôt non renseignée ») et le formulaire de transfert avertit l'utilisateur ; ce n'est pas bloquant. Les fiches de bons exposent `warehouse.address` / `toWarehouse.address`. Aucune migration. L'application ne garantit pas la conformité du document aux exigences légales de transport : à faire valider (contrôle routier, douane).
+
+Aussi : la fenêtre « Enregistrer un règlement » affiche « Chargement des factures… » au lieu d'un faux « Aucune facture en attente » pendant le chargement.

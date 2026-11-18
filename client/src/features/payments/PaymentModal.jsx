@@ -12,7 +12,7 @@ const fromMil = (n) => `${n / 1000n}.${String(n % 1000n).padStart(3, '0')}`;
 // Règlement : le client choisi charge ses factures ouvertes ; le serveur reste l'autorité (solde, devise, doublons).
 export default function PaymentModal({ client: fixedClient, invoice, onClose, onDone }) {
   const [client, setClient] = useState(fixedClient ?? null);
-  const [open, setOpen] = useState([]);
+  const [open, setOpen] = useState([]); const [loading, setLoading] = useState(false);
   const [amounts, setAmounts] = useState({});
   const [date, setDate] = useState(todayIso());
   const [method, setMethod] = useState('cash');
@@ -23,10 +23,11 @@ export default function PaymentModal({ client: fixedClient, invoice, onClose, on
 
   useEffect(() => {
     if (!client) { setOpen([]); return; }
+    setLoading(true);
     api.get('/invoices', { params: { clientId: client.id, open: 1, limit: 100 } }).then((r) => {
       const rows = r.data.data; setOpen(rows);
       setAmounts(invoice ? { [invoice.id]: invoice.balance } : {});
-    }).catch((e) => setError(errorMessage(e)));
+    }).catch((e) => setError(errorMessage(e))).finally(() => setLoading(false));
   }, [client, invoice]);
 
   const total = useMemo(() => Object.values(amounts).reduce((s, v) => s + (toMil(v) ?? 0n), 0n), [amounts]);
@@ -45,7 +46,8 @@ export default function PaymentModal({ client: fixedClient, invoice, onClose, on
         <Alert tone="error">{error}</Alert>
         <Combobox id="pay-client" label="Client *" placeholder="Rechercher un client…" fetcher={searchClients} disabled={!!fixedClient} value={client?.name}
           render={(c) => ({ label: c.name, node: <span>{c.name} <span className="text-xs text-slate-400">{c.code}</span></span> })} onPick={(c) => { setClient(c); setAmounts({}); }} />
-        {client && (open.length === 0 ? <p className="text-sm text-slate-500">Aucune facture en attente de règlement pour ce client.</p> : (
+        {client && loading && <p className="text-sm text-slate-500" role="status">Chargement des factures…</p>}
+        {client && !loading && (open.length === 0 ? <p className="text-sm text-slate-500">Aucune facture en attente de règlement pour ce client.</p> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-sm">
               <thead className="text-left text-xs uppercase text-slate-500"><tr><th className="py-2">Facture</th><th className="py-2">Échéance</th><th className="py-2 text-right">Solde</th><th className="py-2 text-right">Montant réglé</th></tr></thead>

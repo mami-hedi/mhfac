@@ -41,11 +41,13 @@ test('bon de réception : matricule enregistré et relu', async () => {
 });
 
 test('bon de transfert : matricule conservé ; ignoré pour entrée et prélèvement', async () => {
-  const wh2 = ok(await c('POST', '/stock/warehouses', { token: A.token, body: { code: 'DEP2', name: 'Dépôt 2' } }), 201);
+  const wh2 = ok(await c('POST', '/stock/warehouses', { token: A.token, body: { code: 'DEP2', name: 'Dépôt 2', address: '12 rue de l\'Industrie, 1002 Tunis' } }), 201);
   const e = ok(await c('POST', '/stock/entries', { token: A.token, body: { warehouseId: wh.id, date: today, lines: [{ productId: prod.id, quantity: 5, unitCost: '3' }] } }), 201);
   ok(await c('POST', `/stock/entries/${e.id}/validate`, { token: A.token }));
   const t = ok(await c('POST', '/stock/transfers', { token: A.token, body: { warehouseId: wh.id, toWarehouseId: wh2.id, date: today, vehiclePlate: '55 tun 6', lines: [{ productId: prod.id, quantity: 2 }] } }), 201);
   assert.equal(t.vehiclePlate, '55 TUN 6');
+  assert.equal(t.toWarehouse.address, '12 rue de l\'Industrie, 1002 Tunis', 'adresse de destination exposée pour le bon de transfert');
+  assert.ok('address' in t.warehouse);
   const e2 = ok(await c('POST', '/stock/entries', { token: A.token, body: { warehouseId: wh.id, date: today, vehiclePlate: '1 TUN 1', lines: [{ productId: prod.id, quantity: 1, unitCost: '3' }] } }), 201);
   assert.equal(e2.vehiclePlate, null);
   const pdf = await fetch(`${app.base}/stock/transfers/${t.id}/pdf`, { headers: { authorization: `Bearer ${A.token}` } });
