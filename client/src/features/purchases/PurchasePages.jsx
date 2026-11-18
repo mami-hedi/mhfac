@@ -229,7 +229,7 @@ export function PurchaseEditor({ kind }) {
 
 // ───────── Fenêtres ─────────
 function ReceiptModal({ order, onClose, onDone }) {
-  const [date, setDate] = useState(todayIso()); const [ref, setRef] = useState(''); const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(todayIso()); const [ref, setRef] = useState(''); const [notes, setNotes] = useState(''); const [plate, setPlate] = useState('');
   const [qty, setQty] = useState(() => Object.fromEntries(order.lines.map((l) => [l.id, Number(l.receivableQuantity) > 0 ? String(Number(l.receivableQuantity)) : '0'])));
   const [whs, setWhs] = useState([]); const [wh, setWh] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { api.get('/stock/warehouses').then((r) => { const a = r.data.data.filter((w) => w.status === 'active'); setWhs(a); setWh(a.find((w) => w.isDefault)?.id ?? a[0]?.id ?? ''); }).catch(() => {}); }, []);
@@ -237,7 +237,7 @@ function ReceiptModal({ order, onClose, onDone }) {
     const lines = order.lines.filter((l) => Number(qty[l.id]) > 0).map((l) => ({ orderLineId: l.id, quantity: qty[l.id] }));
     if (!lines.length) { setError('Indiquez au moins une quantité reçue.'); return; }
     setBusy(true); setError('');
-    try { onDone((await api.post('/purchase-receipts', { orderId: order.id, warehouseId: wh || undefined, receiptDate: date, supplierRef: ref || null, notes: notes || null, lines })).data.data); } catch (e) { setError(errorMessage(e)); setBusy(false); }
+    try { onDone((await api.post('/purchase-receipts', { orderId: order.id, warehouseId: wh || undefined, receiptDate: date, supplierRef: ref || null, vehiclePlate: plate.trim() || null, notes: notes || null, lines })).data.data); } catch (e) { setError(errorMessage(e)); setBusy(false); }
   };
   return (
     <Modal title={`Bon de réception — ${order.number}`} onClose={onClose} size="lg"><div className="space-y-4">
@@ -246,6 +246,7 @@ function ReceiptModal({ order, onClose, onDone }) {
         <div><label htmlFor="rc-date" className="mb-1 block text-sm font-medium">Date de réception</label><input id="rc-date" type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} className={field} /></div>
         <div><label htmlFor="rc-wh" className="mb-1 block text-sm font-medium">Entrée en stock dans</label><select id="rc-wh" value={wh} onChange={(e) => setWh(e.target.value)} className={field}>{whs.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
         <div><label htmlFor="rc-ref" className="mb-1 block text-sm font-medium">N° du bon fournisseur</label><input id="rc-ref" value={ref} maxLength={60} onChange={(e) => setRef(e.target.value)} className={field} /></div>
+        <div><label htmlFor="rc-plate" className="mb-1 block text-sm font-medium">Matricule du véhicule</label><input id="rc-plate" value={plate} maxLength={20} placeholder="Ex. 123 TUN 4567" onChange={(e) => setPlate(e.target.value)} className={field} /></div>
       </div>
       <table className="w-full text-sm"><thead className="text-left text-xs uppercase text-slate-500"><tr><th className="py-2">Désignation</th><th className="py-2 text-right">Commandé</th><th className="py-2 text-right">Reste à recevoir</th><th className="py-2 text-right">Reçu</th></tr></thead>
         <tbody className="divide-y divide-slate-100">{order.lines.map((l) => (
@@ -345,7 +346,7 @@ export function PurchaseView({ kind }) {
         <Alert tone={notice.tone} onClose={() => setNotice({ tone: 'success', text: '' })}>{notice.text}</Alert>
         {kind === 'order' && doc.status === 'cancelled' && <Alert tone="error">Commande annulée — motif : {doc.cancelReason}.</Alert>}
         {kind === 'receipt' && doc.sourceInvoice && <Alert tone="info">Généré depuis la facture d'achat <Link className="font-medium underline" to={`/purchases/invoices/${doc.sourceInvoice.id}`}>{doc.sourceInvoice.number}</Link>{doc.warehouse && <> · entrepôt {doc.warehouse.name}</>}. {doc.status === 'draft' ? 'La validation fait entrer les articles suivis en stock, au coût de la facture.' : ''}</Alert>}
-        {kind === 'receipt' && doc.order && <Alert tone="info">Commande <Link className="font-medium underline" to={`/purchases/orders/${doc.order.id}`}>{doc.order.number}</Link>{doc.warehouse && <> · entrepôt {doc.warehouse.name}</>}{doc.invoice && <> · facturée : <Link className="font-medium underline" to={`/purchases/invoices/${doc.invoice.id}`}>{doc.invoice.number ?? 'brouillon'}</Link></>}.</Alert>}
+        {kind === 'receipt' && doc.order && <Alert tone="info">Commande <Link className="font-medium underline" to={`/purchases/orders/${doc.order.id}`}>{doc.order.number}</Link>{doc.warehouse && <> · entrepôt {doc.warehouse.name}</>}{doc.vehiclePlate && <> · véhicule {doc.vehiclePlate}</>}{doc.invoice && <> · facturée : <Link className="font-medium underline" to={`/purchases/invoices/${doc.invoice.id}`}>{doc.invoice.number ?? 'brouillon'}</Link></>}.</Alert>}
         {kind === 'receipt' && doc.status === 'cancelled' && <Alert tone="error">Réception annulée — motif : {doc.cancelReason}. Le stock a été rétabli.</Alert>}
         {kind === 'invoice' && doc.stockEntry && <Alert tone="info">{doc.status === 'draft' ? 'À l\'enregistrement, les articles suivis en stock entreront en stock' : doc.status === 'recorded' ? `Articles entrés en stock par cette facture (${doc.stockMovements ?? 0} ligne(s))` : 'Entrée en stock annulée avec la facture'}{doc.warehouse ? ` — entrepôt ${doc.warehouse.name}` : ''}.</Alert>}
         {(kind === 'invoice' || kind === 'credit_note') && doc.order && <Alert tone="info">Commande <Link className="font-medium underline" to={`/purchases/orders/${doc.order.id}`}>{doc.order.number}</Link>{doc.receipt && <> · réception <Link className="font-medium underline" to={`/purchases/receipts/${doc.receipt.id}`}>{doc.receipt.number}</Link></>}</Alert>}

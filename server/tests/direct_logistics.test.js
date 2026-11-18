@@ -38,12 +38,12 @@ test('vente directe : la sortie de stock se fait à l\'émission, avec contrôle
   const e = ok(await saleInv([L(prod, 2)]), 201); ok(await c('POST', `/invoices/${e.id}/issue`, { token: A.token })); assert.equal(await qty(), 10);
 });
 
-test('vente directe : stock insuffisant bloque (si réglage), l\'émission est atomique ; droits ; lignes sans article suivi', async () => {
+test('vente directe : un stock insuffisant ne bloque JAMAIS la facture (stock négatif, même si le réglage l\'interdit) ; droits ; lignes sans article suivi', async () => {
   ok(await c('PATCH', '/companies/current/settings', { token: A.token, body: { stock: { allowNegative: false } } }));
   const d = ok(await saleInv([L(prod, 50)], { stockExit: true }), 201);
-  const r = await c('POST', `/invoices/${d.id}/issue`, { token: A.token }); assert.equal(r.status, 409); assert.equal(code(r), 'STOCK_INSUFFICIENT');
-  assert.equal(ok(await c('GET', `/invoices/${d.id}`, { token: A.token })).status, 'draft', 'toujours brouillon, sans numéro');
-  assert.equal(await qty(), 10);
+  const sc = ok(await c('POST', '/invoices/stock-check', { token: A.token, body: { lines: [{ productId: prod.id, quantity: 50 }] } })); assert.equal(sc.hasShortage, true); assert.equal(sc.willBlock, false);
+  const iss = ok(await c('POST', `/invoices/${d.id}/issue`, { token: A.token })); assert.equal(iss.status, 'issued'); assert.equal(await qty(), -40, 'stock négatif accepté');
+  ok(await c('POST', `/invoices/${d.id}/cancel`, { token: A.token, body: { reason: 'Test stock négatif' } })); assert.equal(await qty(), 10);
   const s = ok(await saleInv([L(svc, 1)], { stockExit: true }), 201);
   assert.equal(code(await c('POST', `/invoices/${s.id}/issue`, { token: A.token })), 'NOTHING_TO_STOCK');
   ok(await c('PATCH', '/companies/current/settings', { token: A.token, body: { stock: { allowNegative: true } } }));

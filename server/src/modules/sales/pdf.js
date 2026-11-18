@@ -134,6 +134,7 @@ export async function renderDocumentPdf({ kind, doc, companyId, lang, accent: ac
   if (kind === 'invoice') { pairs.push([T.due, dateFr(doc.dueDate)]); if (doc.paymentTermsDays) pairs.push([T.condShort, T.days(doc.paymentTermsDays)]); }
   if (kind === 'credit_note' && doc.creditedInvoice) pairs.push([T.origInvoice, doc.creditedInvoice.number]);
   if (kind === 'delivery_note' && doc.order) pairs.push([T.order, doc.order.number]);
+  if (kind === 'delivery_note' && doc.vehiclePlate) pairs.push([T.vehicle ?? 'Véhicule', doc.vehiclePlate]);
   const ref = doc.quote?.number ?? doc.reference; if (kind === 'invoice' && ref) pairs.push([T.reference, ref]);
   if (priced && doc.currency && doc.currency !== c.currency) pairs.push([T.rate, `1 ${doc.currency} = ${Number(doc.exchangeRate)} ${c.currency}`]);
   const metaW = 205; const clientW = W - metaW - 14; const metaX = clientW + 14;

@@ -51,7 +51,7 @@ export async function renderStockVoucherPdf({ doc, companyId }) {
 
   // Bloc d'informations
   const info = doc.type === 'transfer'
-    ? [['Date', dateFr(doc.date)], ['Origine', doc.warehouse?.name], ['Destination', doc.toWarehouse?.name], ['Motif', doc.reason]]
+    ? [['Date', dateFr(doc.date)], ['Origine', doc.warehouse?.name], ['Destination', doc.toWarehouse?.name], ['Véhicule', doc.vehiclePlate], ['Motif', doc.reason]]
     : [['Date', dateFr(doc.date)], ['Entrepôt', doc.warehouse?.name], ['Motif', doc.reason]];
   const colW = W / info.length;
   info.forEach(([k, v], i) => { text(k.toUpperCase(), L + i * colW, y, { size: 7.5, bold: true, color: GREY, width: colW - 8 }); text(v || '—', L + i * colW, y + 11, { size: 10, bold: true, width: colW - 8 }); });

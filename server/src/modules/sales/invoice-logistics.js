@@ -26,7 +26,7 @@ const TRACKED_SQL = `SELECT l.id, l.quantity, l.product_id FROM invoice_lines l 
   WHERE l.invoice_id = ? AND p.track_stock = 1 AND p.type = 'product' ORDER BY l.position`;
 
 // À l'émission : sortie des articles suivis, dans la MÊME transaction que la numérotation (tout ou rien).
-// Le contrôle de disponibilité suit le réglage de l'entreprise « stock négatif autorisé » : s'il est désactivé, un stock insuffisant bloque l'émission (409 STOCK_INSUFFICIENT).
+// Décision produit : une facture n'est JAMAIS refusée pour stock insuffisant ; le stock peut devenir négatif (alerte dans l'inventaire).
 export async function issueStockExit(conn, auth, cur, number) {
   if (!auth.permissions.has('delivery.validate')) throw new HttpError(403, 'FORBIDDEN', 'Sortir des articles du stock exige le droit de valider une livraison');
   const [tracked] = await conn.query(TRACKED_SQL, [cur.id]);
@@ -34,7 +34,7 @@ export async function issueStockExit(conn, auth, cur, number) {
   const whId = cur.stock_warehouse_id ?? await ensureDefaultWarehouse(conn, auth.companyId, auth.userId);
   const [[wh]] = await conn.query('SELECT status, name FROM warehouses WHERE id = ? AND company_id = ?', [whId, auth.companyId]);
   if (wh.status !== 'active') throw new HttpError(422, 'WAREHOUSE_ARCHIVED', `L'entrepôt « ${wh.name} » est archivé : choisissez un autre entrepôt`);
-  await moveStock(conn, { companyId: auth.companyId, userId: auth.userId }, tracked.map((t) => ({
+  await moveStock(conn, { companyId: auth.companyId, userId: auth.userId, allowNegative: true }, tracked.map((t) => ({
     productId: t.product_id, warehouseId: whId, kind: 'delivery', quantity: `-${t.quantity}`, date: cur.issue_date_s, reason: `Facture ${number}`,
     source: { type: 'invoice', id: cur.public_id, number, lineId: t.id } })));
   await conn.query('UPDATE invoices SET stock_warehouse_id = ? WHERE id = ?', [whId, cur.id]);
@@ -61,7 +61,7 @@ export async function stockCheck(conn, auth, { warehouseId, lines }) {
     out.push({ productId: pid, name: p.name, available: fromScaled(avail, 4), requested: fromScaled(q, 4), insufficient: avail < q });
   }
   const short = out.some((o) => o.insufficient);
-  return { warehouseId: whId, allowNegative, items: out, willBlock: short && !allowNegative, hasShortage: short };
+  return { warehouseId: whId, allowNegative, items: out, willBlock: false, hasShortage: short };
 }
 
 // Lignes livrables : tout sauf les services (articles suivis ou non, et lignes libres).

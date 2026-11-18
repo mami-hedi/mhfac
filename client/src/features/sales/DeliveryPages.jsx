@@ -84,6 +84,7 @@ export function DeliveryViewPage() {
           {doc.order ? <div><dt className="text-slate-500">Commande</dt><dd><Link className="text-brand-700 hover:underline" to={`/sales/orders/${doc.order.id}`}>{doc.order.number}</Link></dd></div> : <div><dt className="text-slate-500">Facture source</dt><dd>{doc.sourceInvoice ? <Link className="text-brand-700 hover:underline" to={`/sales/invoices/${doc.sourceInvoice.id}`}>{doc.sourceInvoice.number}</Link> : '—'}</dd></div>}
           <div><dt className="text-slate-500">Sortie de stock</dt><dd>{doc.warehouse?.name ?? '—'}</dd></div>
           <div><dt className="text-slate-500">Adresse</dt><dd>{doc.deliveryAddress ?? '—'}</dd></div>
+          <div><dt className="text-slate-500">Véhicule</dt><dd>{doc.vehiclePlate ?? '—'}</dd></div>
         </dl>
         <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm">
           <thead className="border-y border-slate-200 bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-2">Désignation</th><th className="px-3 py-2 text-right">Quantité livrée</th></tr></thead>

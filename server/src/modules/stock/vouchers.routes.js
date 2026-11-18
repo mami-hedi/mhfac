@@ -14,6 +14,7 @@ import { listQuerySchema, escapeLike } from '../../core/list.js';
 import { applyAdvanced, rangeShape, pageOf, isExport, exportCsv, csvDate, csvMoney, parseSnap } from '../../core/list-filters.js';
 import { history, idParam, todayTunis } from '../sales/common.js';
 import { ensureDefaultWarehouse, findWarehouse, moveStock, reverseSource } from './stock.service.js';
+import { vehiclePlate } from '../../utils/plate.js';
 import { costField, iso, opt, qtyPos } from './schemas.js';
 import { renderStockVoucherPdf } from './voucher-pdf.js';
 
@@ -26,7 +27,7 @@ const TYPES = {
 export default function vouchersRouter(type) {
   const T = TYPES[type]; const router = Router();
   const body = z.object({
-    warehouseId: z.string().uuid(), toWarehouseId: opt(z.string().uuid()).optional(), date: iso,
+    warehouseId: z.string().uuid(), toWarehouseId: opt(z.string().uuid()).optional(), date: iso, vehiclePlate,
     reason: opt(z.string().trim().max(255)).optional(), notes: opt(z.string().trim().max(3000)).optional(),
     lines: z.array(z.object({ productId: z.string().uuid(), quantity: qtyPos, unitCost: opt(costField).optional() })).min(1, 'Au moins une ligne').max(200),
   }).superRefine((b, ctx) => {
@@ -45,7 +46,7 @@ export default function vouchersRouter(type) {
   const dto = async (conn, companyId, publicId) => {
     const v = await find(conn, companyId, publicId);
     const [lines] = await conn.query('SELECT l.*, p.public_id AS product_pid, p.name, p.sku, p.unit FROM stock_voucher_lines l JOIN products p ON p.id = l.product_id WHERE l.voucher_id = ? ORDER BY l.position', [v.id]);
-    return { id: v.public_id, type, number: v.number, status: v.status, date: v.date_s, warehouse: { id: v.wh_pid, name: v.wh_name }, toWarehouse: v.to_pid ? { id: v.to_pid, name: v.to_name } : null, reason: v.reason, notes: v.notes, cancelReason: v.cancel_reason, createdAt: v.created_at,
+    return { id: v.public_id, type, number: v.number, status: v.status, date: v.date_s, warehouse: { id: v.wh_pid, name: v.wh_name }, toWarehouse: v.to_pid ? { id: v.to_pid, name: v.to_name } : null, reason: v.reason, vehiclePlate: v.vehicle_plate, notes: v.notes, cancelReason: v.cancel_reason, createdAt: v.created_at,
       lines: lines.map((l) => ({ id: l.id, productId: l.product_pid, name: l.name, sku: l.sku, unit: l.unit, quantity: l.quantity, unitCost: l.unit_cost })) };
   };
   async function writeLines(conn, voucherId, companyId, lines) {
@@ -86,8 +87,8 @@ export default function vouchersRouter(type) {
     await withTransaction(async (conn) => {
       const wh = await findWarehouse(conn, req.auth.companyId, req.body.warehouseId);
       const to = type === 'transfer' ? await findWarehouse(conn, req.auth.companyId, req.body.toWarehouseId) : null;
-      const [r] = await conn.query('INSERT INTO stock_vouchers (public_id, company_id, type, status, warehouse_id, to_warehouse_id, voucher_date, reason, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
-        [publicId, req.auth.companyId, type, 'draft', wh.id, to?.id ?? null, req.body.date, req.body.reason ?? null, req.body.notes ?? null, req.auth.userId]);
+      const [r] = await conn.query('INSERT INTO stock_vouchers (public_id, company_id, type, status, warehouse_id, to_warehouse_id, voucher_date, vehicle_plate, reason, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        [publicId, req.auth.companyId, type, 'draft', wh.id, to?.id ?? null, req.body.date, type === 'transfer' ? (req.body.vehiclePlate ?? null) : null, req.body.reason ?? null, req.body.notes ?? null, req.auth.userId]);
       await writeLines(conn, r.insertId, req.auth.companyId, req.body.lines);
       await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: `${T.action}.create`, entityType: 'stock_vouchers', entityId: publicId, ip: req.ip });
     });
@@ -100,7 +101,7 @@ export default function vouchersRouter(type) {
       if (cur.status !== 'draft') throw new HttpError(409, 'DOCUMENT_LOCKED', 'Un bon validé ne se modifie pas : annulez-le et recréez-le');
       const wh = await findWarehouse(conn, req.auth.companyId, req.body.warehouseId);
       const to = type === 'transfer' ? await findWarehouse(conn, req.auth.companyId, req.body.toWarehouseId) : null;
-      await conn.query('UPDATE stock_vouchers SET warehouse_id = ?, to_warehouse_id = ?, voucher_date = ?, reason = ?, notes = ? WHERE id = ?', [wh.id, to?.id ?? null, req.body.date, req.body.reason ?? null, req.body.notes ?? null, cur.id]);
+      await conn.query('UPDATE stock_vouchers SET warehouse_id = ?, to_warehouse_id = ?, voucher_date = ?, vehicle_plate = ?, reason = ?, notes = ? WHERE id = ?', [wh.id, to?.id ?? null, req.body.date, type === 'transfer' ? (req.body.vehiclePlate ?? null) : null, req.body.reason ?? null, req.body.notes ?? null, cur.id]);
       await writeLines(conn, cur.id, req.auth.companyId, req.body.lines);
       await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: `${T.action}.update`, entityType: 'stock_vouchers', entityId: cur.public_id, ip: req.ip });
     });

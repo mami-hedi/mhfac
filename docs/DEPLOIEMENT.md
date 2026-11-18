@@ -57,7 +57,7 @@ Aucun service payant ni clé API n'est nécessaire : le scan de factures fournis
 | --- | --- |
 | `npm run dev` / `npm start` | API avec rechargement / API normale |
 | `npm run migrate`, `migrate:status` | Applique / liste les migrations |
-| `npm test` | 239 tests automatisés (base `mhfac_test`, voir `.env.test.example`) |
+| `npm test` | 245 tests automatisés (base `mhfac_test`, voir `.env.test.example`) |
 | `npm run create-admin` | Crée ou promeut le super administrateur |
 | `npm run seed-demo` | Charge une entreprise de démonstration fictive |
 | `npm run docs:api` | Régénère `docs/API.md` depuis les routes réelles |

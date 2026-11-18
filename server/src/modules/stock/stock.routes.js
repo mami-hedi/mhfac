@@ -16,6 +16,7 @@ import { toCsv } from '../../core/csv.js';
 import { idParam, todayTunis } from '../sales/common.js';
 import { ensureDefaultWarehouse, findWarehouse, moveStock, signedScaled, lineCost } from './stock.service.js';
 import { iso, qtyAny, costField, opt } from './schemas.js';
+import { stockCheck } from '../sales/invoice-logistics.js';
 import vouchers from './vouchers.routes.js';
 import counts from './counts.routes.js';
 
@@ -25,6 +26,11 @@ router.use(authenticate);
 // ---------- Entrepôts
 const whDto = (w) => ({ id: w.public_id, code: w.code, name: w.name, address: w.address, isDefault: !!w.is_default, status: w.status });
 const whBody = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]{2,20}$/, 'Code : 2 à 20 lettres, chiffres, - ou _'), name: z.string().trim().min(2).max(120), address: opt(z.string().trim().max(255)), isDefault: z.boolean().optional() });
+
+// Disponibilité indicative des articles d'un document de vente (devis, commande, facture) : aucune écriture de stock.
+router.post('/availability', requirePermission('stock.read'), validate({ body: z.object({ warehouseId: z.string().uuid().optional(), lines: z.array(z.object({ productId: z.string().uuid(), quantity: qtyAny })).min(1).max(200) }) }), asyncHandler(async (req, res) => {
+  res.json({ data: await stockCheck(pool, req.auth, req.body) });
+}));
 
 router.get('/warehouses', requirePermission('stock.read'), asyncHandler(async (req, res) => {
   await withTransaction((c) => ensureDefaultWarehouse(c, req.auth.companyId, req.auth.userId));

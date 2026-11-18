@@ -144,14 +144,14 @@ function VoucherForm({ type, initial, warehouses, onClose, onDone }) {
   const cfg = V[type]; const active = warehouses.filter((w) => w.status === 'active');
   const [f, setF] = useState({
     warehouseId: initial?.warehouse.id ?? active.find((w) => w.isDefault)?.id ?? active[0]?.id ?? '', toWarehouseId: initial?.toWarehouse?.id ?? active.find((w) => w.id !== (active.find((x) => x.isDefault)?.id))?.id ?? '',
-    date: initial?.date ?? todayIso(), reason: initial?.reason ?? '', notes: initial?.notes ?? '',
+    date: initial?.date ?? todayIso(), reason: initial?.reason ?? '', vehiclePlate: initial?.vehiclePlate ?? '', notes: initial?.notes ?? '',
     lines: initial?.lines.map((l) => ({ productId: l.productId, name: l.name, quantity: String(Number(l.quantity)), unitCost: l.unitCost ? String(Number(l.unitCost)) : '' })) ?? [{ productId: '', name: '', quantity: '1', unitCost: '' }],
   });
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const setLine = (i, patch) => setF({ ...f, lines: f.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
   const submit = async () => {
     setBusy(true); setError('');
-    const body = { warehouseId: f.warehouseId, toWarehouseId: type === 'transfer' ? f.toWarehouseId : undefined, date: f.date, reason: f.reason || null, notes: f.notes || null,
+    const body = { warehouseId: f.warehouseId, toWarehouseId: type === 'transfer' ? f.toWarehouseId : undefined, date: f.date, vehiclePlate: type === 'transfer' ? (f.vehiclePlate.trim() || null) : undefined, reason: f.reason || null, notes: f.notes || null,
       lines: f.lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitCost: type === 'entry' && l.unitCost ? l.unitCost : undefined })) };
     try { onDone((initial ? await api.put(`${cfg.api}/${initial.id}`, body) : await api.post(cfg.api, body)).data.data); } catch (e) { setError(errorMessage(e)); setBusy(false); }
   };
@@ -163,6 +163,7 @@ function VoucherForm({ type, initial, warehouses, onClose, onDone }) {
           <WhSelect id="v-wh" label={type === 'transfer' ? 'Entrepôt d\'origine' : 'Entrepôt'} value={f.warehouseId} onChange={(v) => setF({ ...f, warehouseId: v })} list={active} />
           {type === 'transfer' && <WhSelect id="v-to" label="Entrepôt de destination" value={f.toWarehouseId} onChange={(v) => setF({ ...f, toWarehouseId: v })} list={active} />}
           <div><label htmlFor="v-date" className="mb-1 block text-sm font-medium">Date</label><input id="v-date" type="date" max={todayIso()} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={field} /></div>
+          {type === 'transfer' && <div><label htmlFor="v-plate" className="mb-1 block text-sm font-medium">Matricule du véhicule</label><input id="v-plate" value={f.vehiclePlate} maxLength={20} placeholder="Ex. 123 TUN 4567" onChange={(e) => setF({ ...f, vehiclePlate: e.target.value })} className={field} /></div>}
           {type !== 'transfer' && <div><label htmlFor="v-reason" className="mb-1 block text-sm font-medium">Motif{type === 'withdrawal' ? ' *' : ''}</label><input id="v-reason" value={f.reason} maxLength={255} onChange={(e) => setF({ ...f, reason: e.target.value })} className={field} placeholder={type === 'withdrawal' ? 'Ex. usage interne, casse' : 'Ex. stock initial'} /></div>}
         </div>
         <div className="space-y-2">
@@ -243,6 +244,7 @@ export function VoucherViewPage({ type }) {
           <div><dt className="text-slate-500">Date</dt><dd>{fmtDate(doc.date)}</dd></div>
           <div><dt className="text-slate-500">{type === 'transfer' ? 'Origine' : 'Entrepôt'}</dt><dd>{doc.warehouse.name}</dd></div>
           {doc.toWarehouse && <div><dt className="text-slate-500">Destination</dt><dd>{doc.toWarehouse.name}</dd></div>}
+          {doc.vehiclePlate && <div><dt className="text-slate-500">Véhicule</dt><dd>{doc.vehiclePlate}</dd></div>}
           {doc.reason && <div><dt className="text-slate-500">Motif</dt><dd>{doc.reason}</dd></div>}
         </dl>
         <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[480px] text-left text-sm">

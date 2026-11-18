@@ -23,9 +23,10 @@ router.use(authenticate);
 const iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date AAAA-MM-JJ');
 const opt = (s) => z.preprocess((v) => (v === '' ? null : v), s.nullable().optional());
 const body = z.object({
-  orderId: z.string().uuid(), warehouseId: z.string().uuid().optional(), receiptDate: iso, supplierRef: opt(z.string().trim().max(60)), notes: opt(z.string().trim().max(3000)),
+  orderId: z.string().uuid(), warehouseId: z.string().uuid().optional(), receiptDate: iso, vehiclePlate, supplierRef: opt(z.string().trim().max(60)), notes: opt(z.string().trim().max(3000)),
   lines: z.array(z.object({ orderLineId: z.coerce.number().int().positive(), quantity: qtySchema })).min(1, 'Au moins une ligne').max(200),
 });
+import { vehiclePlate } from '../../utils/plate.js';
 const parse = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
 
 async function findReceipt(conn, companyId, publicId, { forUpdate = false } = {}) {
@@ -45,7 +46,7 @@ async function dto(conn, companyId, publicId) {
   const [mv] = await conn.query("SELECT kind, quantity, unit_cost FROM stock_movements WHERE company_id = ? AND source_type = 'purchase_receipt' AND source_id = ? ORDER BY id", [companyId, r.public_id]);
   return {
     id: r.public_id, number: r.number, status: r.status, supplierId: r.supplier_pid, supplierName: snap.name, supplier: snap, client: snap, company: r.company_snapshot ? parse(r.company_snapshot) : null,
-    order: r.order_pid ? { id: r.order_pid, number: r.order_number } : null, sourceInvoice: r.src_inv_pid ? { id: r.src_inv_pid, number: r.src_inv_number } : null, warehouse: r.wh_pid ? { id: r.wh_pid, name: r.wh_name } : null, receiptDate: r.receipt_date_s, supplierRef: r.supplier_ref, notes: r.notes, cancelReason: r.cancel_reason,
+    order: r.order_pid ? { id: r.order_pid, number: r.order_number } : null, sourceInvoice: r.src_inv_pid ? { id: r.src_inv_pid, number: r.src_inv_number } : null, warehouse: r.wh_pid ? { id: r.wh_pid, name: r.wh_name } : null, receiptDate: r.receipt_date_s, supplierRef: r.supplier_ref, vehiclePlate: r.vehicle_plate, notes: r.notes, cancelReason: r.cancel_reason,
     lines: lines.map((l) => ({ id: l.id, orderLineId: l.order_line_id, position: l.position, description: l.description, quantity: l.quantity, unit: l.unit })),
     invoice: inv ? { id: inv.public_id, number: inv.number, status: inv.status } : null, stockMovements: mv.length, createdAt: r.created_at,
   };
@@ -104,8 +105,8 @@ router.post('/', requirePermission('purchase_receipt.write'), validate({ body })
     const lines = await checkLines(conn, o, req.body, ['validated', 'draft']);
     const [[sup]] = await conn.query('SELECT * FROM suppliers WHERE id = ?', [o.supplier_id]);
     const whId = req.body.warehouseId ? (await findWarehouse(conn, req.auth.companyId, req.body.warehouseId)).id : await ensureDefaultWarehouse(conn, req.auth.companyId, req.auth.userId);
-    const [r] = await conn.query('INSERT INTO purchase_receipts (public_id, company_id, status, order_id, supplier_id, supplier_snapshot, warehouse_id, receipt_date, supplier_ref, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [publicId, req.auth.companyId, 'draft', o.id, o.supplier_id, JSON.stringify(clientSnapshot(sup)), whId, req.body.receiptDate, req.body.supplierRef ?? null, req.body.notes ?? null, req.auth.userId]);
+    const [r] = await conn.query('INSERT INTO purchase_receipts (public_id, company_id, status, order_id, supplier_id, supplier_snapshot, warehouse_id, receipt_date, supplier_ref, vehicle_plate, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+      [publicId, req.auth.companyId, 'draft', o.id, o.supplier_id, JSON.stringify(clientSnapshot(sup)), whId, req.body.receiptDate, req.body.supplierRef ?? null, req.body.vehiclePlate ?? null, req.body.notes ?? null, req.auth.userId]);
     await writeLines(conn, r.insertId, lines);
     await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: 'purchase_receipt.create', entityType: 'purchase_receipts', entityId: publicId, ip: req.ip, meta: { order: o.number } });
   });
@@ -118,7 +119,7 @@ router.put('/:id', requirePermission('purchase_receipt.write'), validate({ param
     if (cur.status !== 'draft') throw new HttpError(409, 'DOCUMENT_LOCKED', 'Une réception validée ne peut plus être modifiée : annulez-la et recréez-la');
     if (cur.source_invoice_id) { // BR généré depuis une facture : les lignes suivent la facture ; seuls la date, la référence, les notes et l'entrepôt se modifient
       const wh = req.body.warehouseId ? (await findWarehouse(conn, req.auth.companyId, req.body.warehouseId)).id : cur.warehouse_id;
-      await conn.query('UPDATE purchase_receipts SET receipt_date = ?, supplier_ref = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.receiptDate, req.body.supplierRef ?? null, req.body.notes ?? null, wh, cur.id]);
+      await conn.query('UPDATE purchase_receipts SET receipt_date = ?, supplier_ref = ?, vehicle_plate = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.receiptDate, req.body.supplierRef ?? null, req.body.vehiclePlate ?? null, req.body.notes ?? null, wh, cur.id]);
       await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: 'purchase_receipt.update', entityType: 'purchase_receipts', entityId: cur.public_id, ip: req.ip });
       return;
     }
@@ -126,7 +127,7 @@ router.put('/:id', requirePermission('purchase_receipt.write'), validate({ param
     const [[o]] = await conn.query('SELECT * FROM purchase_orders WHERE id = ? FOR UPDATE', [cur.order_id]);
     const lines = await checkLines(conn, o, req.body, ['validated', 'draft'], cur.id);
     const whId = req.body.warehouseId ? (await findWarehouse(conn, req.auth.companyId, req.body.warehouseId)).id : cur.warehouse_id;
-    await conn.query('UPDATE purchase_receipts SET receipt_date = ?, supplier_ref = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.receiptDate, req.body.supplierRef ?? null, req.body.notes ?? null, whId, cur.id]);
+    await conn.query('UPDATE purchase_receipts SET receipt_date = ?, supplier_ref = ?, vehicle_plate = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.receiptDate, req.body.supplierRef ?? null, req.body.vehiclePlate ?? null, req.body.notes ?? null, whId, cur.id]);
     await writeLines(conn, cur.id, lines);
     await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: 'purchase_receipt.update', entityType: 'purchase_receipts', entityId: cur.public_id, ip: req.ip });
   });

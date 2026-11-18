@@ -41,7 +41,7 @@ test('jeton invalide ou falsifié : 401 partout', async () => {
 test('rôle lecture seule : AUCUNE écriture métier possible (403) sur toutes les routes d\'écriture', async () => {
   const bad = [];
   for (const r of routes.filter((x) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(x.method))) {
-    if (r.path.startsWith('/api/v1/auth') || r.path.startsWith('/api/v1/platform') || /\/preview$/.test(r.path)) continue; // les « preview » ne font que calculer des totaux, sans rien écrire
+    if (r.path.startsWith('/api/v1/auth') || r.path.startsWith('/api/v1/platform') || /\/(preview|availability)$/.test(r.path)) continue; // les « preview » ne font que calculer des totaux, sans rien écrire
     if (r.path.startsWith('/api/v1/notifications')) continue; // exception voulue : chacun marque SES notifications comme lues et règle SES préférences (aucune donnée métier ; isolation vérifiée dans notifications.test.js)
     const res = await c(r.method, fill(rel(r), UUID0), { token: readOnly.token, body: {} });
     if (res.status !== 403) bad.push(`${r.method} ${r.path} -> ${res.status}`);

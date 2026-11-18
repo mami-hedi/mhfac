@@ -15,6 +15,7 @@ import { nextDocNumber } from '../../core/numbering.js';
 import { fromScaled, toScaled } from '../../core/calc.js';
 import { listQuerySchema, escapeLike, orderBy } from '../../core/list.js';
 import { applyAdvanced, rangeShape, pageOf, isExport, exportCsv, csvDate, csvMoney, parseSnap } from '../../core/list-filters.js';
+import { vehiclePlate } from '../../utils/plate.js';
 import { clientSnapshot, companySnapshot, history, idParam, loadLines, qtySchema, todayTunis } from './common.js';
 import { insertInvoiceDraft } from './invoices.service.js';
 import { invoiceLinesFromOrder, orderInvoiceBase, qtyByLine } from './orders.routes.js';
@@ -27,7 +28,7 @@ router.use(authenticate);
 
 const iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date AAAA-MM-JJ');
 const noteBody = z.object({
-  orderId: z.string().uuid(), warehouseId: z.string().uuid().optional(), deliveryDate: iso, deliveryAddress: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(500).nullable().optional()),
+  orderId: z.string().uuid(), warehouseId: z.string().uuid().optional(), deliveryDate: iso, vehiclePlate, deliveryAddress: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(500).nullable().optional()),
   notes: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(3000).nullable().optional()),
   lines: z.array(z.object({ orderLineId: z.coerce.number().int().positive(), quantity: qtySchema })).min(1, 'Au moins une ligne').max(200),
 });
@@ -48,7 +49,7 @@ async function dto(conn, companyId, publicId) {
   return {
     id: r.public_id, number: r.number, status: r.status, clientId: r.client_pid, clientName: parse(r.client_snapshot).name, client: parse(r.client_snapshot),
     company: r.company_snapshot ? parse(r.company_snapshot) : null, order: r.order_pid ? { id: r.order_pid, number: r.order_number } : null, sourceInvoice: r.src_inv_pid ? { id: r.src_inv_pid, number: r.src_inv_number } : null, stockImpact: !!r.stock_impact, warehouse: r.wh_pid ? { id: r.wh_pid, name: r.wh_name } : null,
-    deliveryDate: r.delivery_date_s, issueDate: r.delivery_date_s, deliveryAddress: r.delivery_address, notes: r.notes, cancelReason: r.cancel_reason,
+    deliveryDate: r.delivery_date_s, issueDate: r.delivery_date_s, deliveryAddress: r.delivery_address, vehiclePlate: r.vehicle_plate, notes: r.notes, cancelReason: r.cancel_reason,
     lines: lines.map((l) => ({ id: l.id, orderLineId: l.order_line_id, position: l.position, description: l.description, quantity: l.quantity, unit: l.unit })),
     invoice: inv ? { id: inv.public_id, number: inv.number, status: inv.status } : null, createdAt: r.created_at,
   };
@@ -118,8 +119,8 @@ router.post('/', requirePermission('delivery.write'), validate({ body: noteBody 
     const lines = await checkLines(conn, o, req.body, ['validated', 'draft']);
     const [[client]] = await conn.query('SELECT * FROM clients WHERE id = ?', [o.client_id]);
     const whId = req.body.warehouseId ? (await findWarehouse(conn, req.auth.companyId, req.body.warehouseId)).id : await ensureDefaultWarehouse(conn, req.auth.companyId, req.auth.userId);
-    const [r] = await conn.query('INSERT INTO delivery_notes (public_id, company_id, status, order_id, warehouse_id, client_id, client_snapshot, delivery_date, delivery_address, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      [publicId, req.auth.companyId, 'draft', o.id, whId, o.client_id, JSON.stringify(clientSnapshot(client)), req.body.deliveryDate, req.body.deliveryAddress ?? client.address ?? null, req.body.notes ?? null, req.auth.userId]);
+    const [r] = await conn.query('INSERT INTO delivery_notes (public_id, company_id, status, order_id, warehouse_id, client_id, client_snapshot, delivery_date, delivery_address, vehicle_plate, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+      [publicId, req.auth.companyId, 'draft', o.id, whId, o.client_id, JSON.stringify(clientSnapshot(client)), req.body.deliveryDate, req.body.deliveryAddress ?? client.address ?? null, req.body.vehiclePlate ?? null, req.body.notes ?? null, req.auth.userId]);
     await writeLines(conn, r.insertId, lines);
     await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: 'delivery.create', entityType: 'delivery_notes', entityId: publicId, ip: req.ip, meta: { order: o.number } });
   });
@@ -132,7 +133,7 @@ router.put('/:id', requirePermission('delivery.write'), validate({ params: idPar
     if (cur.status !== 'draft') throw new HttpError(409, 'DOCUMENT_LOCKED', 'Un bon validé ne peut plus être modifié : annulez-le et recréez-le');
     if (cur.source_invoice_id) { // bon généré depuis une facture : les lignes suivent la facture, seuls la date, l'adresse, les notes et l'entrepôt se modifient
       const wh = req.body.warehouseId ? (await findWarehouse(conn, req.auth.companyId, req.body.warehouseId)).id : cur.warehouse_id;
-      await conn.query('UPDATE delivery_notes SET delivery_date = ?, delivery_address = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.deliveryDate, req.body.deliveryAddress ?? null, req.body.notes ?? null, wh, cur.id]);
+      await conn.query('UPDATE delivery_notes SET delivery_date = ?, delivery_address = ?, vehicle_plate = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.deliveryDate, req.body.deliveryAddress ?? null, req.body.vehiclePlate ?? null, req.body.notes ?? null, wh, cur.id]);
       await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: 'delivery.update', entityType: 'delivery_notes', entityId: cur.public_id, ip: req.ip });
       return;
     }
@@ -140,7 +141,7 @@ router.put('/:id', requirePermission('delivery.write'), validate({ params: idPar
     const [[o]] = await conn.query('SELECT * FROM sales_orders WHERE id = ? FOR UPDATE', [cur.order_id]);
     const lines = await checkLines(conn, o, req.body, ['validated', 'draft'], cur.id);
     const whId = req.body.warehouseId ? (await findWarehouse(conn, req.auth.companyId, req.body.warehouseId)).id : cur.warehouse_id;
-    await conn.query('UPDATE delivery_notes SET delivery_date = ?, delivery_address = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.deliveryDate, req.body.deliveryAddress ?? null, req.body.notes ?? null, whId, cur.id]);
+    await conn.query('UPDATE delivery_notes SET delivery_date = ?, delivery_address = ?, vehicle_plate = ?, notes = ?, warehouse_id = ? WHERE id = ?', [req.body.deliveryDate, req.body.deliveryAddress ?? null, req.body.vehiclePlate ?? null, req.body.notes ?? null, whId, cur.id]);
     await writeLines(conn, cur.id, lines);
     await audit(conn, { companyId: req.auth.companyId, userId: req.auth.userId, action: 'delivery.update', entityType: 'delivery_notes', entityId: cur.public_id, ip: req.ip });
   });

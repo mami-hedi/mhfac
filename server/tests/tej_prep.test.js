@@ -92,3 +92,9 @@ test('codes d\'opération TEJ : chaque code du code source existe dans le XSD of
   for (const code of Object.keys(OPERATION_CODES)) assert.ok(official.has(code), `${code} absent du XSD officiel`);
   assert.ok(official.size >= 40);
 });
+
+test('matricule fiscal : la forme complète 1654872X/A/M/000 est acceptée et réduite à 1654872X (XSD TEJ) ; les formes invalides restent refusées', async () => {
+  const { normalizeMf, isMf } = await import('../src/modules/withholdings/tej-xml.js');
+  for (const ok of ['1654872X/A/M/000', '1654872X', '1654872 X', '1654872-x', '1654872X/N/N/000', '1654872X/B/P/000']) { assert.equal(normalizeMf(ok), '1654872X', ok); assert.equal(isMf(ok), true, ok); }
+  for (const bad of ['', null, '165487X', '16548723', '1654872', '1654872XYZ99', '12345678', 'AB12345', '1654872X/A/M/00']) assert.equal(isMf(bad), false, String(bad));
+});

@@ -79,14 +79,18 @@ export default function DocEditorPage({ kind }) {
   const canStockExit = kind === 'invoice' && !linked && can('delivery.validate') && can('stock.read');
   useEffect(() => { if (canStockExit) api.get('/stock/warehouses').then((w) => setWhs(w.data.data.filter((x) => x.status === 'active'))).catch(() => {}); }, [canStockExit]);
   const stockKey = JSON.stringify([values.stockExit, values.warehouseId, values.lines.map((l) => [l.productId, l.quantity])]);
+  // Avertissement « stock insuffisant » par ligne : devis, commande et facture, dès qu'un article suivi est choisi (indicatif, jamais bloquant ici).
+  const canStockCheck = ['quote', 'sales_order', 'invoice'].includes(kind) && !linked && can('stock.read');
   useEffect(() => {
-    if (!canStockExit || !values.stockExit) { setCheck(null); return undefined; }
+    if (!canStockCheck) { setCheck(null); return undefined; }
     const ls = values.lines.filter((l) => l.productId && Number(l.quantity) > 0).map((l) => ({ productId: l.productId, quantity: l.quantity }));
     if (!ls.length) { setCheck(null); return undefined; }
-    const t = setTimeout(() => { api.post('/invoices/stock-check', { warehouseId: values.warehouseId || undefined, lines: ls }).then((r) => setCheck(r.data.data)).catch(() => setCheck(null)); }, 400);
+    const t = setTimeout(() => { api.post('/stock/availability', { warehouseId: values.warehouseId || undefined, lines: ls }).then((r) => setCheck(r.data.data)).catch(() => setCheck(null)); }, 400);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockKey, canStockExit]);
+  }, [stockKey, canStockCheck]);
+
+  const lineShort = (i) => { const pid = values.lines[i]?.productId; return pid && check?.items?.find((x) => x.productId === pid && x.insufficient); };
 
   const submit = handleSubmit(async (v) => {
     setError(''); setSaving(true);
@@ -173,6 +177,7 @@ export default function DocEditorPage({ kind }) {
                 {fodecOn && <div className="flex items-end gap-2 pb-2 md:col-span-2"><input id={`fodec-${i}`} type="checkbox" className="h-4 w-4" {...register(`lines.${i}.fodec`)} /><label htmlFor={`fodec-${i}`} className="text-sm text-slate-700">FODEC</label></div>}
                 <div className="flex items-end justify-end md:col-span-1">{fields.length > 1 && <Button type="button" variant="ghost" aria-label={`Supprimer la ligne ${i + 1}`} onClick={() => remove(i)}><Trash2 size={16} className="text-red-600" /></Button>}</div>
               </div>
+              {lineShort(i) && <p role="status" className={`mt-2 text-xs font-medium text-amber-700`} data-testid="stock-warn">⚠ Stock insuffisant : {Number(lineShort(i).available)} disponible(s) pour {Number(lineShort(i).requested)} demandé(s){values.stockExit ? ' — la facture sera quand même émise (stock négatif)' : ''}.</p>}
               {calc?.lines[i] && <p className="mt-2 text-right text-xs text-slate-500">Total HT de la ligne : <strong className="tabular-nums text-slate-800">{fmtMoney(calc.lines[i].netAmount, calc.currency)}</strong></p>}
             </div>
           ))}
@@ -184,7 +189,7 @@ export default function DocEditorPage({ kind }) {
         <Card className="mt-4 p-5">
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-0.5 h-4 w-4" {...register('stockExit')} /><span><strong>Sortir les articles du stock à l'émission</strong><br /><span className="text-slate-500">À cocher pour une vente directe (livraison immédiate ou comptoir). Seuls les articles « suivis en stock » sortent. Ne cochez pas si vous préférez générer un bon de livraison : la marchandise ne sort du stock qu'une seule fois.</span></span></label>
           {values.stockExit && whs.length > 0 && <div className="mt-2 max-w-xs"><label htmlFor="inv-wh" className="mb-1 block text-sm font-medium text-slate-700">Entrepôt</label><select id="inv-wh" className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" {...register('warehouseId')}><option value="">Entrepôt par défaut</option>{whs.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>}
-          {values.stockExit && check?.hasShortage && <div className="mt-3"><Alert tone={check.willBlock ? 'error' : 'info'}>{check.willBlock ? 'Stock insuffisant : l\'émission sera refusée.' : 'Stock insuffisant (le stock négatif est autorisé : l\'émission passera et le stock deviendra négatif).'}<ul className="mt-1 list-disc pl-5">{check.items.filter((i) => i.insufficient).map((i) => <li key={i.productId}>{i.name} : disponible {Number(i.available)}, demandé {Number(i.requested)}</li>)}</ul></Alert></div>}
+          {values.stockExit && check?.hasShortage && <div className="mt-3"><Alert tone={check.willBlock ? 'error' : 'info'}>Stock insuffisant : l\'émission passera quand même et le stock deviendra négatif.<ul className="mt-1 list-disc pl-5">{check.items.filter((i) => i.insufficient).map((i) => <li key={i.productId}>{i.name} : disponible {Number(i.available)}, demandé {Number(i.requested)}</li>)}</ul></Alert></div>}
         </Card>
       )}
 

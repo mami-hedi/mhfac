@@ -1,6 +1,6 @@
 # MHFac — Audit complet : sécurité, robustesse, concurrence, performance (7 novembre 2026)
 
-Méthode : revue du code, `npm audit`, et **quatre campagnes de tests automatiques** ajoutées à la suite (239 tests, tous verts). Aucune méthode ne prouve l'absence totale de bug ; ces tests prouvent que les défauts connus sont corrigés et empêchent leur retour.
+Méthode : revue du code, `npm audit`, et **quatre campagnes de tests automatiques** ajoutées à la suite (245 tests, tous verts). Aucune méthode ne prouve l'absence totale de bug ; ces tests prouvent que les défauts connus sont corrigés et empêchent leur retour.
 
 ## 1. Défauts trouvés et corrigés
 | # | Gravité | Défaut | Correction | Test |
