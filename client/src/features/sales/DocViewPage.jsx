@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Ban, CheckCircle2, ClipboardList, Percent, Receipt, Truck, Copy, Download, FileMinus, History, Pencil, Mail, Send, Trash2, Wallet, XCircle, ArrowRightLeft } from 'lucide-react';
+import { Ban, CheckCircle2, ClipboardList, Percent, Receipt, Truck, Copy, Download, FileMinus, History, Pencil, Mail, MessageCircle, Send, Trash2, Wallet, XCircle, ArrowRightLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { api, errorMessage } from '../../services/api.js';
 import { Alert, Button, Card, Modal, PageHeader, Spinner } from '../../components/ui/index.jsx';
@@ -38,6 +38,40 @@ function CreditModal({ invoice, onClose, onDone }) {
   );
 }
 
+// Numéro WhatsApp → format international sans « + » (wa.me). 8 chiffres = numéro tunisien (+216). Retourne null si invalide.
+export function normalizeWhatsapp(raw) {
+  let d = String(raw ?? '').replace(/[^\d+]/g, '');
+  if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2);
+  d = d.replace(/\D/g, '');
+  if (/^\d{8}$/.test(d)) d = `216${d}`;
+  else if (/^0\d{8}$/.test(d)) d = `216${d.slice(1)}`;
+  return /^[1-9]\d{7,14}$/.test(d) ? d : null;
+}
+
+// Envoi par WhatsApp : ouvre la conversation (wa.me) avec un message prêt ; le PDF se joint à la main (aucune API WhatsApp Business, rien n'est envoyé par le serveur).
+export function WhatsappModal({ doc, cfg, companyName, onClose, onPdf }) {
+  const label = cfg.one;
+  const [phone, setPhone] = useState(doc.client.phone ?? '');
+  const [text, setText] = useState(`Bonjour ${doc.client.name},\n\nVeuillez trouver notre ${label} N° ${doc.number} d'un montant de ${fmtMoney(doc.totalTtc, doc.currency ?? 'TND')} TTC.\n\nCordialement,\n${companyName ?? ''}`.trim());
+  const [error, setError] = useState('');
+  const open = () => {
+    const n = normalizeWhatsapp(phone);
+    if (!n) { setError('Numéro invalide. Exemple : 98 123 456 (Tunisie) ou +33 6 12 34 56 78.'); return; }
+    window.open(`https://wa.me/${n}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer'); onClose();
+  };
+  return (
+    <Modal title={`Envoyer ${doc.number} sur WhatsApp`} onClose={onClose} size="lg">
+      <div className="space-y-4">
+        <Alert tone="error">{error}</Alert>
+        <div><label htmlFor="wa-phone" className="mb-1 block text-sm font-medium">Numéro WhatsApp du client *</label><input id="wa-phone" type="tel" inputMode="tel" value={phone} autoFocus placeholder="98 123 456 ou +33 6 12 34 56 78" onChange={(e) => { setPhone(e.target.value); setError(''); }} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /><p className="mt-1 text-xs text-slate-500">Sans indicatif, le numéro est considéré comme tunisien (+216).</p></div>
+        <div><label htmlFor="wa-msg" className="mb-1 block text-sm font-medium">Message</label><textarea id="wa-msg" rows={6} value={text} maxLength={1500} onChange={(e) => setText(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div>
+        <Alert tone="info">WhatsApp s'ouvre avec le message prêt, mais le PDF ne peut pas être joint automatiquement : téléchargez-le puis ajoutez-le dans la conversation avec le trombone.</Alert>
+        <div className="flex flex-wrap justify-end gap-2"><Button variant="secondary" onClick={onClose}>Annuler</Button><Button variant="secondary" onClick={onPdf}><Download size={16} aria-hidden /> Télécharger le PDF</Button><Button onClick={open}><MessageCircle size={16} aria-hidden /> Ouvrir WhatsApp</Button></div>
+      </div>
+    </Modal>
+  );
+}
+
 export function EmailModal({ doc, cfg, onClose, onDone }) {
   const [to, setTo] = useState(doc.client.email ?? ''); const [subject, setSubject] = useState(''); const [message, setMessage] = useState('');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
@@ -62,7 +96,7 @@ export function EmailModal({ doc, cfg, onClose, onDone }) {
 }
 
 export default function DocViewPage({ kind }) {
-  const cfg = CFG[kind]; const { id } = useParams(); const navigate = useNavigate(); const { can } = useAuth();
+  const cfg = CFG[kind]; const { id } = useParams(); const navigate = useNavigate(); const { can, company } = useAuth();
   const [doc, setDoc] = useState(null); const [error, setError] = useState('');
   const [notice, setNotice] = useState({ tone: 'success', text: '' });
   const [busy, setBusy] = useState(''); const [modal, setModal] = useState(null); const [cancelReason, setCancelReason] = useState('');
@@ -127,6 +161,7 @@ export default function DocViewPage({ kind }) {
   }
   const sendable = kind === 'quote' ? !['expired', 'converted'].includes(doc.status) : kind === 'sales_order' ? doc.status === 'confirmed' : doc.status === 'issued';
   if (sendable && can(`${P}.write`)) actions.splice(1, 0, <Button key="mail" variant="secondary" onClick={() => setModal('mail')}><Mail size={16} aria-hidden /> Envoyer</Button>);
+  if (sendable && can(`${P}.write`)) actions.splice(2, 0, <Button key="wa" variant="secondary" onClick={() => setModal('wa')}><MessageCircle size={16} aria-hidden /> WhatsApp</Button>);
   const deletable = (kind === 'quote' ? doc.storedStatus === 'draft' : draft) && can(`${P}.delete`);
   if (deletable) actions.push(<Button key="del" variant="ghost" onClick={() => setModal('delete')}><Trash2 size={16} className="text-red-600" aria-hidden /> Supprimer</Button>);
 
@@ -206,6 +241,7 @@ export default function DocViewPage({ kind }) {
         </div>
       </div>
 
+      {modal === 'wa' && <WhatsappModal doc={doc} cfg={cfg} companyName={company?.name} onClose={() => setModal(null)} onPdf={() => downloadCsv(`${cfg.api}/${id}/pdf`, undefined, `${doc.number ?? 'brouillon'}.pdf`).catch((e) => setNotice({ tone: 'error', text: errorMessage(e) }))} />}
       {modal === 'mail' && <EmailModal doc={doc} cfg={cfg} onClose={() => setModal(null)} onDone={(l) => { setModal(null); setNotice({ tone: 'success', text: `E-mail envoyé à ${l.join(', ')}` }); load(); }} />}
       {modal === 'delivery' && <DeliveryModal order={doc} onClose={() => setModal(null)} onDone={(n) => navigate(`/sales/delivery-notes/${n.id}`)} />}
       {modal === 'deposit' && <DepositModal order={doc} onClose={() => setModal(null)} onDone={(r) => navigate(`/sales/invoices/${r.invoiceId}`)} />}
