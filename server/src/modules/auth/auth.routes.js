@@ -71,6 +71,15 @@ router.post('/reset-password', strict, validate({ body: s.resetSchema }), asyncH
   res.status(204).end();
 }));
 
+// Renvoi du lien de confirmation : au plus 3 par heure et par utilisateur connecté.
+const perUserVerify = rateLimit({
+  windowMs: 60 * 60_000, limit: 3, standardHeaders: false, legacyHeaders: false, message: tooMany,
+  keyGenerator: (req) => `rv:${req.auth?.userId ?? req.ip}`,
+});
+router.post('/resend-verification', authenticate, perUserVerify, asyncHandler(async (req, res) => {
+  res.json({ data: await svc.resendVerification(req.auth) });
+}));
+
 router.post('/verify-email', strict, validate({ body: s.tokenSchema }), asyncHandler(async (req, res) => {
   await svc.verifyEmail(req.body.token);
   res.status(204).end();

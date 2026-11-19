@@ -16,11 +16,12 @@ const schema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET: 32 caracteres minimum'),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
-  MAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
+  MAIL_PROVIDER: z.enum(['console', 'smtp', 'resend']).default('console'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(), // clé API Resend (provider 'resend') : à saisir uniquement dans les variables d'environnement de Render
   MAIL_FROM: z.string().default('MHFac <no-reply@localhost>'),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(5),

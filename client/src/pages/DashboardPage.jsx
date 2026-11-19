@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, Circle, MailWarning, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { api, errorMessage } from '../services/api.js';
-import { Alert, Card, PageHeader, Spinner } from '../components/ui/index.jsx';
+import { Alert, Button, Card, PageHeader, Spinner } from '../components/ui/index.jsx';
 import { BarChart, Donut, HBars, money } from '../components/Charts.jsx';
 
 const KPI_LABELS = {
@@ -11,6 +11,24 @@ const KPI_LABELS = {
   pending_quotes: 'Devis en attente', quote_conversion: 'Taux de conversion des devis', expenses: 'Dépenses enregistrées',
   client_balances: 'Soldes clients', supplier_balances: 'Soldes fournisseurs', treasury: 'Trésorerie enregistrée', low_stock: 'Produits sous le seuil de stock',
 };
+
+function ResendVerification() {
+  const [state, setState] = useState({ busy: false, msg: '', error: false });
+  const resend = async () => {
+    setState({ busy: true, msg: '', error: false });
+    try {
+      const r = await api.post('/auth/resend-verification');
+      setState({ busy: false, msg: r.data?.data?.alreadyVerified ? 'Votre adresse est déjà vérifiée : rechargez la page.' : 'E-mail envoyé. Vérifiez aussi vos courriers indésirables (spam).', error: false });
+    } catch (e) { setState({ busy: false, msg: errorMessage(e), error: true }); }
+  };
+  return (
+    <span className="flex flex-wrap items-center gap-3">
+      <span className="flex items-center gap-2"><MailWarning size={16} aria-hidden /> Votre adresse e-mail n'est pas encore vérifiée : ouvrez le lien reçu par e-mail.</span>
+      <Button variant="secondary" loading={state.busy} onClick={resend}>Renvoyer l'e-mail</Button>
+      {state.msg && <span className={state.error ? 'text-red-700' : 'text-green-700'} role="status">{state.msg}</span>}
+    </span>
+  );
+}
 
 const iso = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Tunis' }).format(d);
 const PRESETS = {
@@ -52,7 +70,7 @@ export default function DashboardPage() {
       <PageHeader title={`Bonjour ${user.fullName.split(' ')[0]}`} subtitle={company.name} />
       {!user.emailVerified && (
         <div className="mb-4">
-          <Alert tone="info"><span className="flex items-center gap-2"><MailWarning size={16} aria-hidden /> Votre adresse e-mail n'est pas encore vérifiée : ouvrez le lien reçu par e-mail. (En développement, ce lien s'affiche dans la console du serveur.)</span></Alert>
+          <Alert tone="info"><ResendVerification /></Alert>
         </div>
       )}
 

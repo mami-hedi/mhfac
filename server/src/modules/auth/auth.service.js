@@ -50,17 +50,32 @@ async function buildSession(conn, user, company, ctx, familyId) {
   };
 }
 
-async function sendVerifyEmail(conn, user) {
+async function createVerifyToken(conn, user) {
   const raw = randomToken();
   await conn.query(
     "INSERT INTO email_tokens (user_id, type, token_hash, expires_at) VALUES (?, 'email_verify', ?, ?)",
     [user.id, sha256(raw), addMs(2 * DAY)],
   );
-  await sendMail({
-    to: user.email,
-    subject: 'MHFac : confirmez votre adresse e-mail',
-    text: `Bonjour ${user.full_name},\n\nConfirmez votre adresse : ${clientUrl(`/verify-email?token=${raw}`)}\n(lien valable 48 h)`,
-  });
+  return raw;
+}
+
+const deliverVerifyEmail = (user, raw) => sendMail({
+  to: user.email,
+  subject: 'MHFac : confirmez votre adresse e-mail',
+  text: `Bonjour ${user.full_name},\n\nConfirmez votre adresse : ${clientUrl(`/verify-email?token=${raw}`)}\n(lien valable 48 h)`,
+});
+
+// Renvoi du lien de confirmation (utilisateur connecté, adresse non encore vérifiée). Les anciens liens non utilisés sont invalidés.
+export async function resendVerification(auth) {
+  const [[user]] = await pool.query('SELECT * FROM users WHERE id = ?', [auth.userId]);
+  if (user.email_verified_at) return { alreadyVerified: true };
+  await pool.query("UPDATE email_tokens SET used_at = ? WHERE user_id = ? AND type = 'email_verify' AND used_at IS NULL", [new Date(), user.id]);
+  const raw = await createVerifyToken(pool, user);
+  try { await deliverVerifyEmail(user, raw); } catch (e) {
+    console.error(JSON.stringify({ level: 'error', msg: `renvoi e-mail de confirmation : ${e.message}` }));
+    throw new HttpError(502, 'MAIL_FAILED', "L'e-mail n'a pas pu être envoyé pour le moment, réessayez dans quelques minutes");
+  }
+  return { alreadyVerified: false };
 }
 
 export async function registerCompany(input, ctx) {
@@ -77,7 +92,7 @@ export async function registerCompany(input, ctx) {
   }
 
   const passwordHash = await hashPassword(input.password);
-  return withTransaction(async (conn) => {
+  const out = await withTransaction(async (conn) => {
     const [c] = await conn.query('INSERT INTO companies (public_id, name, tax_id) VALUES (?,?,?)', [newPublicId(), input.companyName, input.taxId ?? null]);
     await conn.query('INSERT INTO company_settings (company_id, settings) VALUES (?, ?)', [c.insertId, '{}']);
     const [u] = await conn.query('INSERT INTO users (public_id, email, password_hash, full_name) VALUES (?,?,?,?)', [newPublicId(), input.email, passwordHash, input.fullName]);
@@ -88,9 +103,15 @@ export async function registerCompany(input, ctx) {
 
     const [[user]] = await conn.query('SELECT * FROM users WHERE id = ?', [u.insertId]);
     const [[company]] = await conn.query('SELECT * FROM companies WHERE id = ?', [c.insertId]);
-    await sendVerifyEmail(conn, user);
-    return buildSession(conn, user, company, ctx);
+    const verifyToken = await createVerifyToken(conn, user);
+    return { session: await buildSession(conn, user, company, ctx), user, verifyToken };
   });
+  // L'e-mail part APRÈS la validation de la transaction : un fournisseur d'e-mail en panne ne doit jamais empêcher l'inscription
+  // (l'utilisateur pourra demander un renvoi depuis son tableau de bord).
+  try { await deliverVerifyEmail(out.user, out.verifyToken); } catch (e) {
+    console.error(JSON.stringify({ level: 'error', msg: `e-mail de confirmation d'inscription non envoyé : ${e.message}` }));
+  }
+  return out.session;
 }
 
 export async function login({ email, password, companyId }, ctx) {
